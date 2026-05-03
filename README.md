@@ -21,4 +21,8 @@ Nous nous sommes mis à la place d'une équipe technique qui décide d'effectuer
 
 ## Étapes
 
-À définir 😉
+- Lancer l'appli Next.js [`./realworld-front`](./realworld-front)
+- Lancer le nouveau "back-for-front" qui va servir nos super WebComponents
+- Introduire progressivement nos WebComponents dans l'application
+- Introduire progressivement HTMX pour prendre en main certains aspects
+- ...À définir 😉
