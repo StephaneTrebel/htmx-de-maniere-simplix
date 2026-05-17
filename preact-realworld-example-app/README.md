@@ -22,14 +22,14 @@ For more information on how to this works with other frontends/backends, head ov
 
 ```shell script
 # install dependencies
-yarn 
+npm install
 
 # start development
-yarn start
+npm run start
 
 # build
-yarn build
+npm run build
 
 # visualize bundle size
-yarn build:visualize
+npm run build:visualize
 ```
