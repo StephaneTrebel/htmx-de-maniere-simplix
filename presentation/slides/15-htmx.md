@@ -53,7 +53,7 @@ sequenceDiagram
     U->>N: clic (hx-get)
     N->>S: GET /articles
     S-->>N: articles (fragment) HTML
-    N->>N: swap dans le DOM (#liste)
+    N->>N: swap dans le DOM (#35;liste)
 ```
 
 /*
