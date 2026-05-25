@@ -13,11 +13,22 @@ On part d'une SPA Preact existante, on garde ce qui fonctionne, et on introduit 
 Le mot "simplix" donne le ton: chercher la simplicité praticable, pas la simplification magique.
 */
 
+## Qui sommes-nous?
+
+!image(assets/stephane_thomas.webp,portraits,600)
+
+| **Thomas Labarussias**| | **Stéphane Trebel**  |
+|-|-|-|
+| Staff DevOps/SRE || Rust |
+| Ex-DevRel || Rust |
+| Mainteneur OSS || Rust |
+| Ambassadeur CNCF || Rust |
+
 ## Le pacte
 
-- Un vrai cas applicatif, pas une todo-list
-- Une migration progressive, pas une réécriture héroïque
-- Comparer SPA+JSON et HDA+HTML sur le même terrain
+- Un **vrai cas applicatif**, pas une todo-list
+- Une **migration progressive**, pas une réécriture héroïque
+- Comparer **SPA+JSON** et **HDA+HTML** sur le même terrain
 
 /*
 Dire que le sujet devient intéressant parce qu'on ne change pas seulement une librairie.
@@ -28,9 +39,9 @@ Le terrain commun permet aussi d'éviter les débats abstraits: quand un bouton 
 
 ## Trois mouvements
 
-1. A Realworld SPA application
-2. WebComponents rendus par Go, strangler fig, HTMX
-3. Conclusions: ce qui devient simple, ce qui reste dur
+1. A **Realworld SPA application**
+2. WebComponents rendus par **Go** + **HTMX** (en mode *strangler fig*)
+3. **Conclusions**: ce qui devient simple, ce qui reste dur
 
 /*
 Annoncer les trois chapitres.

@@ -136,11 +136,15 @@ Le compromis se voit immédiatement: moins d'état client, mais une discipline p
 
 ## Exemple: filtre par tag
 
-```text
-GET /articles?tag=go
-  -> liste HTML
-  -> pagination HTML
-  -> onglet actif HTML
+```mermaid
+sequenceDiagram
+    participant N as Navigateur
+    participant S as Serveur
+
+    N->>S: GET /articles?tag=go
+    S-->>N: liste HTML
+    S-->>N: pagination HTML
+    S-->>N: onglet actif HTML
 ```
 
 /*
@@ -169,12 +173,13 @@ Et il faut surveiller la duplication temporaire entre le rendu Preact et le rend
 
 ## La cohabitation
 
-```text
-Route Preact
-  -> zone historique
-  -> zone stranglée
-       hx-get / html
-       hx-post / html
+```mermaid
+graph TD
+    R[Route Preact]
+    R --> H[Zone historique]
+    R --> S[Zone stranglée]
+    S --> G["hx-get → HTML"]
+    S --> P["hx-post → HTML"]
 ```
 
 /*

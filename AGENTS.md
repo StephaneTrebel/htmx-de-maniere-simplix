@@ -33,8 +33,10 @@ La migration applicative est une pile stricte et linéaire de branches :
    - Sert de référence pour comparer le comportement, les routes, l'UX et les échanges API.
 
 2. `step-01-go-hda-proxy`
-   - Ajoute `go-hda-backend/`.
+   - Ajoute `go-hda-backend/`:
+      - un backend http en `Go`, utilisant `Echo` comme framework et `templ` pour générer les pages html
    - Ajoute `reverse-proxy/`.
+      - un traefik faisant le routing vers le backend `Go` ou `Preact` en fonction de la présence des headers `HTMX`
    - Pose la fondation permettant de servir soit la SPA, soit le contenu HDA.
    - Le routage entre SPA et HDA se fera selon des headers à définir dans cette étape ou dans une décision documentée.
 

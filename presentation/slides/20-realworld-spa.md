@@ -58,12 +58,17 @@ On a donc un bon mélange de rendu, d'état local, d'état global et de contrat 
 
 ## Le cycle SPA classique
 
-```text
-clic utilisateur
-  -> setState / store
-  -> fetch JSON
-  -> setState
-  -> render Preact
+```mermaid
+sequenceDiagram
+    participant U as Utilisateur
+    participant S as State/Store
+    participant A as API (JSON)
+    participant V as Vue Preact
+
+    U->>S: clic
+    S->>A: fetch JSON
+    A-->>S: setState
+    S->>V: render
 ```
 
 /*
@@ -90,12 +95,17 @@ Ce sera une bonne cible de migration car on peut déplacer une partie de cette m
 
 ## Exemple: ArticlePreview
 
-```text
-props.article
-  -> état local
-  -> POST/DELETE favorite
-  -> nouvel article JSON
-  -> nouveau rendu
+```mermaid
+sequenceDiagram
+    participant P as Props (article)
+    participant E as État local
+    participant A as API
+    participant V as Vue Preact
+
+    P->>E: initialisation
+    E->>A: POST/DELETE favorite
+    A-->>E: nouvel article JSON
+    E->>V: nouveau rendu
 ```
 
 /*
@@ -106,7 +116,7 @@ Côté HTML+HTMX, la même interaction peut devenir: le bouton appelle le serveu
 
 ## Le contrat de départ
 
-```text
+```json
 GET /api/articles?page=1
 Accept: application/json
 
