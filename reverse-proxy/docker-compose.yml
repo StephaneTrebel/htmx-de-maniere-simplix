@@ -21,14 +21,12 @@ services:
 
   # ── Reverse proxy ──────────────────────────────────────────────────────────
   traefik:
-    image: traefik:v3.3
+    image: traefik:v2.11
     container_name: traefik
     restart: unless-stopped
     ports:
       - "1337:1337"   # Point d'entrée unique de l'application
       - "8080:8080"   # Dashboard Traefik
-    environment:
-      - DOCKER_API_VERSION=1.41
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
