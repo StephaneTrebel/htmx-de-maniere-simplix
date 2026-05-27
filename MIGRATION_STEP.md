@@ -36,10 +36,14 @@ Ouvrir : **http://localhost:5173**
 
 ## Architecture
 
-```
-Navigateur  →  http://localhost:5173  →  SPA Preact
-                                              │
-                                              └── fetch JSON  →  https://api.realworld.show/api
+```mermaid
+flowchart LR
+    Browser["🌐 Navigateur"]
+    SPA["⚛️ SPA Preact\nlocalhost:5173"]
+    API["🔌 API RealWorld\napi.realworld.show"]
+
+    Browser -->|"HTTP"| SPA
+    SPA -->|"fetch JSON"| API
 ```
 
 Tout est dans le navigateur. Le serveur ne sert que les fichiers statiques (JS, CSS, HTML). La logique de rendu, le routing, la gestion d'état — tout est côté client.
