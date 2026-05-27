@@ -18,7 +18,7 @@ Cette branche sert de référence. Elle permet de comparer le comportement, les 
 
 - L'application RealWorld Conduit complète, 100 % rendue côté client.
 - Onglet Réseau : toutes les requêtes vont vers `https://api.realworld.show/api` et retournent du **JSON**.
-- Aucun backend Go, aucun reverse proxy. Juste Vite + Preact.
+- Aucun backend Go, aucun reverse proxy. Juste WMR + Preact.
 
 ---
 
@@ -27,10 +27,10 @@ Cette branche sert de référence. Elle permet de comparer le comportement, les 
 ```bash
 cd preact-realworld-example-app
 npm ci
-npm run dev
+npm start
 ```
 
-Ouvrir : **http://localhost:5173**
+Ouvrir : **http://localhost:8080**
 
 ---
 
@@ -39,7 +39,7 @@ Ouvrir : **http://localhost:5173**
 ```mermaid
 flowchart LR
     Browser["🌐 Navigateur"]
-    SPA["⚛️ SPA Preact\nlocalhost:5173"]
+    SPA["⚛️ SPA Preact\nlocalhost:8080"]
     API["🔌 API RealWorld\napi.realworld.show"]
 
     Browser -->|"HTTP"| SPA

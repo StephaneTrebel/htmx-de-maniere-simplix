@@ -107,10 +107,10 @@ docker compose version    # doit afficher Docker Compose version v2+
 git checkout step-00-spa-json
 cd preact-realworld-example-app
 npm ci
-npm run dev
+npm start
 ```
 
-Ouvrir : **http://localhost:5173**
+Ouvrir : **http://localhost:8080**
 
 Toute la logique est dans le navigateur. L'application appelle directement `https://api.realworld.show/api`.
 Aucun backend Go, aucun Traefik.
@@ -130,7 +130,7 @@ git checkout step-01-go-hda-proxy
 | PopularTags | Rendu côté client (Preact + fetch JSON) | Fragment HTML côté serveur (Go + templ) |
 | Chargement des tags | `apiGetAllTags()` dans un `useEffect` | `hx-get="/hda/tags"` → backend Go |
 | Communication avec la SPA | Callback `onClick` prop | Événement DOM custom `conduit:tag` |
-| URL de l'application | `http://localhost:5173` | `http://localhost:1337` (via Traefik) |
+| URL de l'application | `http://localhost:8080` | `http://localhost:1337` (via Traefik) |
 | Reverse proxy | Aucun | Traefik sur `:1337` |
 
 #### Mode stack complète (Docker + Traefik) — recommandé
@@ -164,7 +164,7 @@ make dev   # génère les templates templ + démarre en mode watch sur :3000
 **Terminal 2 — SPA Preact :**
 ```bash
 cd preact-realworld-example-app
-npm ci && npm run dev   # http://localhost:5173
+npm ci && npm start   # http://localhost:8080
 ```
 
 ---
@@ -185,7 +185,7 @@ make clean   # supprime le binaire et les *_templ.go générés
 ### SPA Preact (`preact-realworld-example-app/`)
 
 ```bash
-npm run dev     # serveur de développement (port 5173)
+npm start       # serveur de développement (port 8080)
 npm run build   # build de production dans dist/
 ```
 
