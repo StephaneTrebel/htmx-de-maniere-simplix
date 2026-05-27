@@ -169,7 +169,7 @@ make dev   # templ generate --watch + go run
 **Terminal 2 — SPA Preact (port 8080) :**
 ```bash
 cd preact-realworld-example-app
-npm ci && npm start
+npm ci && npm run start
 ```
 
 ---

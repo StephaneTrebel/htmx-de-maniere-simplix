@@ -107,7 +107,7 @@ docker compose version    # doit afficher Docker Compose version v2+
 git checkout step-00-spa-json
 cd preact-realworld-example-app
 npm ci
-npm start
+npm run start
 ```
 
 Ouvrir : **http://localhost:8080**
@@ -164,7 +164,7 @@ make dev   # génère les templates templ + démarre en mode watch sur :3000
 **Terminal 2 — SPA Preact :**
 ```bash
 cd preact-realworld-example-app
-npm ci && npm start   # http://localhost:8080
+npm ci && npm run start   # http://localhost:8080
 ```
 
 ---
@@ -185,7 +185,7 @@ make clean   # supprime le binaire et les *_templ.go générés
 ### SPA Preact (`preact-realworld-example-app/`)
 
 ```bash
-npm start       # serveur de développement (port 8080)
+npm run start       # serveur de développement (port 8080)
 npm run build   # build de production dans dist/
 ```
 
