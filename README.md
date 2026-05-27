@@ -234,16 +234,15 @@ npm run build   # build de production dans dist/
 
 Quand l'utilisateur clique un tag dans le fragment Go :
 
-```
-1. Clic sur un tag dans le fragment HTML (servi par Go)
-        ↓
-2. onclick dispatche : new CustomEvent('conduit:tag', { detail: 'tagname' })
-        ↓
-3. Home.tsx (Preact) écoute 'conduit:tag' via document.addEventListener
-        ↓
-4. State Preact mis à jour : setTag(tagname), setCurrentActiveTab('tag')
-        ↓
-5. Le fil d'articles se recharge — encore rendu côté client
+```mermaid
+flowchart TD
+    A["🖱️ Clic sur un tag\nfragment HTML servi par Go"]
+    B["onclick dispatche\nCustomEvent('conduit:tag', { detail: tagname })"]
+    C["Home.tsx écoute 'conduit:tag'\ndocument.addEventListener"]
+    D["State Preact mis à jour\nsetTag · setCurrentActiveTab('tag')"]
+    E["Fil d'articles rechargé\nencore rendu côté client"]
+
+    A --> B --> C --> D --> E
 ```
 
 Ce pattern **découple le HTML Go du JS Preact** : ils ne se connaissent pas directement, ils communiquent via le DOM. C'est intentionnel et pédagogique.

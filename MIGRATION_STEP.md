@@ -95,9 +95,16 @@ preact-realworld-example-app/public/types/global.d.ts
 
 ### Routing : PathPrefix sur URL unique
 
-```
-http://localhost:1337/hda/*  →  Go backend  (fragments HTML)
-http://localhost:1337/*      →  SPA Preact   (shell + JS)
+```mermaid
+flowchart LR
+    Browser["🌐 Navigateur"]
+    Traefik["⚙️ Traefik\nlocalhost:1337"]
+    Go["🐹 Go + templ\nfragments HTML"]
+    SPA["⚛️ SPA Preact\nshell + JS"]
+
+    Browser -->|"HTTP"| Traefik
+    Traefik -->|"/hda/*\npriority=10"| Go
+    Traefik -->|"/*\npriority=1"| SPA
 ```
 
 Traefik route par `PathPrefix`. La route `/hda/` a une priorité explicite plus haute (`priority=10`) que le catch-all `/` (`priority=1`). Aucune entrée `/etc/hosts` nécessaire.
@@ -106,15 +113,15 @@ Traefik route par `PathPrefix`. La route `/hda/` a une priorité explicite plus 
 
 Quand l'utilisateur clique un tag dans le fragment Go :
 
-```
-1. onclick dans le HTML Go dispatche :
-   new CustomEvent('conduit:tag', { bubbles: true, detail: this.dataset.tag })
+```mermaid
+flowchart TD
+    A["🖱️ Clic sur un tag\nfragment HTML servi par Go"]
+    B["onclick dispatche\nCustomEvent('conduit:tag', { bubbles: true, detail: this.dataset.tag })"]
+    C["Home.tsx écoute 'conduit:tag'\ndocument.addEventListener"]
+    D["State Preact mis à jour\nsetTag · setCurrentActiveTab('tag') · setPage(1)"]
+    E["Fil d'articles rechargé\nencore rendu côté client\nstep-01 ne migre pas les articles"]
 
-2. Home.tsx (Preact) écoute via document.addEventListener('conduit:tag', handler)
-
-3. Le state Preact est mis à jour : setTag + setCurrentActiveTab('tag') + setPage(1)
-
-4. Le fil d'articles se recharge — encore rendu côté client (step-01 ne migre pas les articles)
+    A --> B --> C --> D --> E
 ```
 
 Ce pattern **découple le HTML Go du JS Preact** : les deux parties communiquent via le DOM, sans se connaître directement. C'est intentionnel et pédagogique.
