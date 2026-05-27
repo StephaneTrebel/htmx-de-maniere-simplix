@@ -17,6 +17,19 @@ export default function HomePage() {
 	const [tag, setTag] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 
+	// Écoute l'événement DOM dispatché par le fragment HTMX PopularTags (Go backend).
+	// C'est le seul point de couplage entre le HTML Go et le JS Preact : le DOM custom event.
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const selectedTag = (e as CustomEvent<string>).detail;
+			setCurrentActiveTab('tag');
+			setTag(selectedTag);
+			setPage(1);
+		};
+		document.addEventListener('conduit:tag', handler);
+		return () => document.removeEventListener('conduit:tag', handler);
+	}, []);
+
 	useEffect(() => {
 		(async function fetchFeeds() {
 			setIsLoading(true);
@@ -94,12 +107,11 @@ export default function HomePage() {
 					</div>
 
 					<div class="col-md-3">
-						<PopularTags
-							onClick={(tag: string) => {
-								setCurrentActiveTab('tag');
-								setTag(tag);
-							}}
-						/>
+						{/* PopularTags est maintenant un point de montage HTMX.
+						    Le fragment HTML est chargé depuis /hda/tags par le backend Go.
+						    Au clic sur un tag, le fragment dispatche l'événement DOM "conduit:tag"
+						    que ce composant écoute via le useEffect ci-dessus. */}
+						<PopularTags />
 					</div>
 				</div>
 			</div>

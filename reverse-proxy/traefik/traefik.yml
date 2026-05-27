@@ -1,0 +1,18 @@
+# Configuration statique Traefik
+# Ce fichier est monté dans le container Traefik en lecture seule.
+
+api:
+  dashboard: true
+  insecure: true   # Dashboard accessible sur :8080 en dev
+
+entryPoints:
+  web:
+    address: ":1337"
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: conduit-net
+
+log:
+  level: INFO

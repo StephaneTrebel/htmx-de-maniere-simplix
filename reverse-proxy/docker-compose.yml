@@ -1,0 +1,73 @@
+###############################################################################
+# Stack Conduit — step-01-go-hda-proxy
+#
+# URL unique : http://localhost:1337
+#
+# Routing Traefik (par PathPrefix, ordre de priorité) :
+#   /hda/*   →  Go HDA backend   (fragments HTML servis par Go + templ)
+#   /*       →  SPA Preact        (shell JS, routing client-side)
+#
+# Démarrage :
+#   docker compose up --build
+#
+# Aucune entrée /etc/hosts nécessaire — tout passe par localhost:1337.
+###############################################################################
+
+networks:
+  conduit-net:
+    driver: bridge
+
+services:
+
+  # ── Reverse proxy ──────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.3
+    container_name: conduit-traefik
+    restart: unless-stopped
+    ports:
+      - "1337:1337"   # Point d'entrée unique de l'application
+      - "8080:8080"   # Dashboard Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - conduit-net
+
+  # ── Backend Go HDA ─────────────────────────────────────────────────────────
+  # Sert uniquement les fragments HTML sur /hda/*.
+  go-hda-backend:
+    build:
+      context: ../go-hda-backend
+      dockerfile: Dockerfile
+    container_name: conduit-go-hda
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - SESSION_SECRET=${SESSION_SECRET:-conduit-dev-secret-change-in-prod}
+    networks:
+      - conduit-net
+    labels:
+      - "traefik.enable=true"
+      # Route prioritaire : /hda/* → Go
+      - "traefik.http.routers.go-hda.rule=PathPrefix(`/hda/`)"
+      - "traefik.http.routers.go-hda.entrypoints=web"
+      - "traefik.http.routers.go-hda.priority=10"
+      - "traefik.http.services.go-hda.loadbalancer.server.port=3000"
+
+  # ── SPA Preact ─────────────────────────────────────────────────────────────
+  # Sert le shell HTML + JS, catch-all sur toutes les autres routes.
+  spa:
+    build:
+      context: ../preact-realworld-example-app
+      dockerfile: Dockerfile
+    container_name: conduit-spa
+    restart: unless-stopped
+    networks:
+      - conduit-net
+    labels:
+      - "traefik.enable=true"
+      # Route catch-all : tout le reste → SPA
+      - "traefik.http.routers.spa.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.spa.entrypoints=web"
+      - "traefik.http.routers.spa.priority=1"
+      - "traefik.http.services.spa.loadbalancer.server.port=5173"
