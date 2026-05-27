@@ -24,7 +24,7 @@ Ce step pose également l'infrastructure complète : backend Go, reverse proxy T
 | PopularTags | Rendu côté client (Preact + fetch JSON) | Fragment HTML côté serveur (Go + templ) |
 | Chargement des tags | `apiGetAllTags()` dans un `useEffect` | `hx-get="/hda/tags"` → backend Go |
 | Communication avec la SPA | Callback `onClick` prop | Événement DOM custom `conduit:tag` |
-| URL de l'application | `http://localhost:5173` | `http://localhost:1337` (via Traefik) |
+| URL de l'application | `http://localhost:8080` | `http://localhost:1337` (via Traefik) |
 | Reverse proxy | Aucun | Traefik sur `:1337` |
 | Backend Go | Absent | Présent, sert uniquement `/hda/tags` |
 
@@ -157,8 +157,8 @@ Ouvrir : **http://localhost:1337**
 
 ### Mode développement (sans Docker)
 
-> ⚠️ Sans Traefik, le `hx-get="/hda/tags"` dans la SPA (port 5173) pointera vers `localhost:5173/hda/tags`
-> et ne trouvera pas le backend Go (port 3000). Configurer le proxy Vite ou utiliser la stack Docker.
+> ⚠️ Sans Traefik, le `hx-get="/hda/tags"` dans la SPA (port 8080) pointera vers `localhost:8080/hda/tags`
+> et ne trouvera pas le backend Go (port 3000). Configurer le proxy WMR ou utiliser la stack Docker.
 
 **Terminal 1 — Backend Go (port 3000) :**
 ```bash
@@ -166,10 +166,10 @@ cd go-hda-backend
 make dev   # templ generate --watch + go run
 ```
 
-**Terminal 2 — SPA Preact (port 5173) :**
+**Terminal 2 — SPA Preact (port 8080) :**
 ```bash
 cd preact-realworld-example-app
-npm ci && npm run dev
+npm ci && npm start
 ```
 
 ---
