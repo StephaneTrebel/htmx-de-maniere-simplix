@@ -6,7 +6,7 @@ api:
   insecure: true   # Dashboard accessible sur :8080 en dev
 
 entryPoints:
-  web:
+  app:
     address: ":1337"
 
 providers:

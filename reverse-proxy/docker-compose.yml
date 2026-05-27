@@ -22,7 +22,7 @@ services:
   # ── Reverse proxy ──────────────────────────────────────────────────────────
   traefik:
     image: traefik:v3.3
-    container_name: conduit-traefik
+    container_name: traefik
     restart: unless-stopped
     ports:
       - "1337:1337"   # Point d'entrée unique de l'application
@@ -39,7 +39,7 @@ services:
     build:
       context: ../go-hda-backend
       dockerfile: Dockerfile
-    container_name: conduit-go-hda
+    container_name: hda
     restart: unless-stopped
     environment:
       - PORT=3000
@@ -50,7 +50,7 @@ services:
       - "traefik.enable=true"
       # Route prioritaire : /hda/* → Go
       - "traefik.http.routers.go-hda.rule=PathPrefix(`/hda/`)"
-      - "traefik.http.routers.go-hda.entrypoints=web"
+      - "traefik.http.routers.go-hda.entrypoints=app"
       - "traefik.http.routers.go-hda.priority=10"
       - "traefik.http.services.go-hda.loadbalancer.server.port=3000"
 
@@ -60,7 +60,7 @@ services:
     build:
       context: ../preact-realworld-example-app
       dockerfile: Dockerfile
-    container_name: conduit-spa
+    container_name: spa
     restart: unless-stopped
     networks:
       - conduit-net
@@ -68,6 +68,6 @@ services:
       - "traefik.enable=true"
       # Route catch-all : tout le reste → SPA
       - "traefik.http.routers.spa.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.spa.entrypoints=web"
+      - "traefik.http.routers.spa.entrypoints=app"
       - "traefik.http.routers.spa.priority=1"
       - "traefik.http.services.spa.loadbalancer.server.port=5173"
