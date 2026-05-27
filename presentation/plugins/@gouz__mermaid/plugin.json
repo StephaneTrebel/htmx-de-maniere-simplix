@@ -1,1 +1,0 @@
-{"addStyles":["plugins/@gouz__mermaid/mermaid.css"],"addScripts":["plugins/@gouz__mermaid/mermaid.min.js","plugins/@gouz__mermaid/plugin.js"],"onSlideChange":"window.slidesk.mermaidChange();","files":["mermaid.css","mermaid.min.js","plugin.js"],"tags":["mermaid","presentation","diagram"]}
