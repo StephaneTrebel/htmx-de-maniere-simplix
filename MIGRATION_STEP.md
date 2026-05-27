@@ -55,7 +55,7 @@ go-hda-backend/
 
 reverse-proxy/
 ├── .env.example
-├── docker-compose.yml               ← Traefik v3 + Go backend + SPA, routing PathPrefix
+├── docker-compose.yml               ← Traefik v2.11 + Go backend + SPA, routing PathPrefix
 └── traefik/
     └── traefik.yml                  ← entrypoint :1337, provider Docker
 
@@ -65,24 +65,133 @@ preact-realworld-example-app/
 
 ### Modifiés
 
+#### `public/index.html` — chargement de HTMX via CDN
+
+```diff
++		<!-- HTMX — permet aux fragments HTML servis par Go de s'intégrer dans la SPA -->
++		<script src="https://unpkg.com/htmx.org@2.0.4"
++		        integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
++		        crossorigin="anonymous"></script>
+ 		<link rel="preload" as="script" href="/index.tsx" crossorigin />
 ```
-preact-realworld-example-app/public/index.html
-    → ajout du script HTMX via CDN (version 2.0.4 avec integrity hash)
 
-preact-realworld-example-app/public/components/PopularTags.tsx
-    → remplacé par un point de montage HTMX :
-      <div hx-get="/hda/tags" hx-trigger="load" hx-swap="outerHTML" />
-    → suppression du useEffect + apiGetAllTags
-    → suppression de la prop onClick
+#### `public/components/PopularTags.tsx` — remplacement par le point de montage HTMX
 
-preact-realworld-example-app/public/pages/Home.tsx
-    → ajout d'un useEffect écoutant l'événement DOM "conduit:tag"
-    → suppression du state tag passé en prop à PopularTags
-    → suppression du callback onClick
-
-preact-realworld-example-app/public/types/global.d.ts
-    → déclarations TypeScript pour les attributs hx-* dans JSX (Preact namespace)
+```diff
+-import { useEffect, useState } from 'preact/hooks';
+-import { LoadingIndicator } from './LoadingIndicator';
+-import { apiGetAllTags } from '../services/api/tags';
+-
+-interface PopularTagsProps {
+-	onClick: (tag: string) => void;
+-}
+-
+-export function PopularTags(props: PopularTagsProps) {
+-	const [tags, setTags] = useState<string[]>([]);
+-	const [loading, setLoading] = useState(false);
+-
+-	useEffect(() => {
+-		(async function getAllTags() {
+-			setLoading(true);
+-			setTags(await apiGetAllTags());
+-			setLoading(false);
+-		})();
+-	}, []);
+-
++export function PopularTags() {
+ 	return (
+-		<div class="sidebar">
+-			<p>Popular Tags</p>
+-			<div class="tag-list">
+-				<LoadingIndicator show={loading} width="1em" />
+-				{tags.map(tag => (
+-					<a key={tag} href="#" class="tag-pill tag-default" onClick={() => props.onClick(tag)}>
+-						{tag}
+-					</a>
+-				))}
+-			</div>
+-		</div>
++		<div
++			hx-get="/hda/tags"
++			hx-trigger="load"
++			hx-swap="outerHTML"
++		/>
+ 	);
+ }
 ```
+
+Le composant Preact n'a plus aucune logique : il n'est qu'un point de montage. HTMX charge le fragment dès que l'élément entre dans le DOM (`hx-trigger="load"`) et remplace l'élément lui-même (`hx-swap="outerHTML"`).
+
+#### `public/pages/Home.tsx` — écoute de l'événement DOM `conduit:tag`
+
+```diff
++	useEffect(() => {
++		const handler = (e: Event) => {
++			const selectedTag = (e as CustomEvent<string>).detail;
++			setCurrentActiveTab('tag');
++			setTag(selectedTag);
++			setPage(1);
++		};
++		document.addEventListener('conduit:tag', handler);
++		return () => document.removeEventListener('conduit:tag', handler);
++	}, []);
+
+ 	// ...
+
+-						<PopularTags
+-							onClick={(tag: string) => {
+-								setCurrentActiveTab('tag');
+-								setTag(tag);
+-							}}
+-						/>
++						{/* PopularTags est maintenant un point de montage HTMX. */}
++						<PopularTags />
+```
+
+#### `public/types/global.d.ts` — déclarations TypeScript pour les attributs `hx-*`
+
+Fichier créé pour éviter les erreurs TypeScript sur les attributs HTMX dans JSX :
+
+```ts
+declare namespace preact.JSX {
+	export interface HTMLAttributes<RefType extends EventTarget = EventTarget> {
+		'hx-get'?: string;
+		'hx-trigger'?: string;
+		'hx-swap'?: string;
+		// ...
+	}
+}
+```
+
+---
+
+### Fragment HTML généré par Go (`go-hda-backend`)
+
+Le template `templ` qui produit le HTML renvoyé par `GET /hda/tags` :
+
+```go
+// internal/templates/tags.templ
+templ TagsSidebar(tags []string) {
+	<div class="sidebar">
+		<p>Popular Tags</p>
+		<div class="tag-list">
+			for _, tag := range tags {
+				<a
+					class="tag-pill tag-default"
+					href="#"
+					data-tag={ tag }
+					onclick="event.preventDefault(); document.dispatchEvent(new CustomEvent('conduit:tag', { bubbles: true, detail: this.dataset.tag }))"
+				>{ tag }</a>
+			}
+		</div>
+	</div>
+}
+```
+
+Points clés :
+- `data-tag={ tag }` : valeur du tag en attribut HTML — jamais interpolée dans une chaîne JS (protection XSS).
+- `this.dataset.tag` : lecture de la valeur au moment du clic.
+- `CustomEvent('conduit:tag', { bubbles: true, detail: ... })` : l'événement remonte le DOM jusqu'à ce que `Home.tsx` l'intercepte via `document.addEventListener`.
 
 ### Non modifiés
 
