@@ -27,7 +27,7 @@ Cette branche sert de référence. Elle permet de comparer le comportement, les 
 ```bash
 cd preact-realworld-example-app
 npm ci
-npm start
+npm run start
 ```
 
 Ouvrir : **http://localhost:8080**
