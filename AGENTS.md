@@ -33,12 +33,11 @@ La migration applicative est une pile stricte et linéaire de branches :
    - Sert de référence pour comparer le comportement, les routes, l'UX et les échanges API.
 
 2. `step-01-go-hda-proxy`
-   - Ajoute `go-hda-backend/`:
-      - un backend http en `Go`, utilisant `Echo` comme framework et `templ` pour générer les pages html
-   - Ajoute `reverse-proxy/`.
-      - un traefik faisant le routing vers le backend `Go` ou `Preact` en fonction de la présence des headers `HTMX`
-   - Pose la fondation permettant de servir soit la SPA, soit le contenu HDA.
-   - Le routage entre SPA et HDA se fera selon des headers à définir dans cette étape ou dans une décision documentée.
+   - Ajoute `go-hda-backend/` : backend HTTP en Go, framework Echo, templates `templ` pour générer des **fragments HTML**.
+   - Ajoute `reverse-proxy/` : Traefik v3 sur `:1337`, routing par `PathPrefix` — `/hda/*` vers Go (priority=10), `/*` vers la SPA (priority=1).
+   - Migre le premier composant : **PopularTags** (sidebar des tags populaires) — remplacé par un point de montage HTMX `hx-get="/hda/tags"`.
+   - Établit le pattern de communication SPA ↔ Go : événement DOM custom `conduit:tag` dispatché par le fragment Go, écouté par `Home.tsx`.
+   - L'URL reste unique (`localhost:1337`). L'utilisateur ne voit aucune différence visuelle.
 
 3. `step-02-*` à `step-0n-*`
    - Chaque branche migre un composant ou un ensemble cohérent de composants.
@@ -82,7 +81,7 @@ Contenu attendu :
 - Préserver `preact-realworld-example-app/` comme source de vérité initiale de la SPA.
 - Modifier la SPA uniquement de façon progressive, composant par composant ou zone par zone.
 - Pour les étapes `step-02-*` et suivantes, migrer un composant ou ensemble cohérent vers une version HTML + HTMX servie par `go-hda-backend/`.
-- Utiliser Lit pour créer ou encapsuler les Web Components nécessaires à l'intégration progressive.
+- Privilégier les événements DOM custom pour la communication entre les fragments Go et le JS Preact restant — pas de couplage direct entre les deux couches.
 - Garder le reverse proxy comme couche séparée de `go-hda-backend/`.
 - Éviter les refontes massives ou les changements opportunistes qui brouillent la narration de migration.
 - Documenter toute décision structurante dans `MIGRATION_STEP.md`.
@@ -91,10 +90,14 @@ Contenu attendu :
 
 Avant de considérer un step terminé :
 
-- lancer les vérifications pertinentes pour la SPA, par exemple dans `preact-realworld-example-app/` : `npm run build` ;
-- lancer les tests ou builds Go quand `go-hda-backend/` existera ;
-- lancer les tests ou builds du proxy quand `reverse-proxy/` existera ;
-- vérifier que `MIGRATION_STEP.md` décrit bien le step courant ;
-- vérifier qu'aucun changement de la branche `step-*` ne touche `presentation/`.
+- SPA : `cd preact-realworld-example-app && npm run build`
+- Backend Go : `cd go-hda-backend && go build ./... && go vet ./...`
+- Templates templ : `cd go-hda-backend && make templ` (doit générer les `*_templ.go` sans erreur)
+- Stack complète : `cd reverse-proxy && docker compose up --build` (vérifier que http://localhost:1337 répond)
+- Vérifier que `MIGRATION_STEP.md` décrit bien le step courant.
+- Vérifier qu'aucun changement de la branche `step-*` ne touche `presentation/` :
+  ```bash
+  git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo "OK"
+  ```
 
 Si aucune vérification automatisée n'existe encore pour une couche donnée, le dire explicitement dans `MIGRATION_STEP.md` au lieu de prétendre que le step est entièrement validé.
