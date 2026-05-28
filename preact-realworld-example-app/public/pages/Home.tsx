@@ -17,21 +17,22 @@
  *
  * L'utilisateur ne voit aucune différence visuelle.
  */
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 
 import { PopularTags } from '../components/PopularTags';
 import { useStore } from '../store';
 
 export default function HomePage() {
 	const isAuthenticated = useStore(state => !!state.user);
+	const rowRef = useRef<HTMLDivElement>(null);
 
 	// HTMX ne scanne pas automatiquement les éléments ajoutés par le routeur SPA.
 	// Quand l'utilisateur revient sur Home depuis une autre page, Preact recrée
-	// le <div id="article-feed"> mais HTMX ne le voit pas — hx-trigger="load"
-	// ne se déclencherait jamais. htmx.process() lui signale le nouvel élément.
+	// les deux points de montage HTMX (#article-feed et PopularTags) mais HTMX
+	// ne les voit pas — hx-trigger="load" ne se déclencherait jamais.
+	// htmx.process() sur le container .row couvre les deux en un seul appel.
 	useEffect(() => {
-		const el = document.getElementById('article-feed');
-		if (el) window.htmx.process(el);
+		if (rowRef.current) window.htmx.process(rowRef.current);
 	}, []);
 
 	// Pont entre le fragment PopularTags (Go) et le fragment ArticleFeed (Go).
@@ -62,7 +63,7 @@ export default function HomePage() {
 			)}
 
 			<div class="container page">
-				<div class="row">
+				<div class="row" ref={rowRef}>
 					<div class="col-md-9">
 						{/*
 						 * Point de montage HTMX — step-02.
