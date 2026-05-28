@@ -13,7 +13,7 @@
  * Après (step-04) :
  *   - 2 states (article, isLoading) — les commentaires sont la responsabilité du fragment Go
  *   - Point de montage HTMX <div id="comments" hx-get="..." hx-trigger="load" hx-swap="innerHTML">
- *   - hx-headers injecte le JWT une seule fois sur le conteneur ; form et boutons delete l'héritent
+ *   - JWT injecté via htmx:configRequest (index.tsx) — jamais exposé dans le DOM
  *   - username et userImage passés en query param pour que Go puisse rendre le formulaire
  *     et les boutons delete de façon conditionnelle
  *
@@ -54,18 +54,12 @@ export default function ArticlePage(props: ArticlePageProps) {
 		if (commentsRef.current) window.htmx.process(commentsRef.current);
 	}, [article]);
 
-	const token = user?.token ?? '';
-	const username = user?.username ?? '';
-	const userImage = user?.image ?? '';
-
-	// hx-headers expose le JWT au fragment et à tous ses enfants HTMX (form, delete).
-	// hx-swap="innerHTML" : le div#comments reste dans le DOM (et conserve hx-headers),
-	// seul son contenu est remplacé à chaque requête Go.
+	// username et userImage passés en query params pour que Go puisse rendre
+	// le formulaire et les boutons delete de façon conditionnelle.
+	// Le JWT est injecté automatiquement par le listener htmx:configRequest dans index.tsx.
 	const commentsUrl = `/hda/articles/${encodeURIComponent(props.params.slug)}/comments`
-		+ `?username=${encodeURIComponent(username)}`
-		+ `&userImage=${encodeURIComponent(userImage)}`;
-
-	const hxHeaders = token ? JSON.stringify({ Authorization: `Token ${token}` }) : '{}';
+		+ `?username=${encodeURIComponent(user?.username ?? '')}`
+		+ `&userImage=${encodeURIComponent(user?.image ?? '')}`;
 
 	return !article ? (
 		<LoadingIndicator show={isLoading} style={{ margin: '1rem auto', display: 'flex' }} width="2em" />
@@ -93,8 +87,8 @@ export default function ArticlePage(props: ArticlePageProps) {
 					<div class="col-xs-12 col-md-8 offset-md-2">
 						{/*
 						 * Point de montage HTMX — step-04.
-						 * hx-swap="innerHTML" : ce div reste dans le DOM avec ses hx-headers.
-						 * Tous les éléments HTMX rendus par Go à l'intérieur héritent du JWT.
+						 * hx-swap="innerHTML" : le div reste dans le DOM entre les requêtes.
+						 * Le JWT est injecté par htmx:configRequest (index.tsx), pas ici.
 						 */}
 						<div
 							id="comments"
@@ -102,7 +96,6 @@ export default function ArticlePage(props: ArticlePageProps) {
 							hx-get={commentsUrl}
 							hx-trigger="load"
 							hx-swap="innerHTML"
-							hx-headers={hxHeaders}
 						/>
 					</div>
 				</div>

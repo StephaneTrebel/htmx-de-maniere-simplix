@@ -34,9 +34,22 @@ interface HtmxAjaxOptions {
 	headers?: Record<string, string>;
 }
 
+interface HtmxConfigRequestDetail {
+	headers: Record<string, string>;
+	parameters: Record<string, string>;
+	unfilteredParameters: Record<string, string>;
+	target: Element;
+	verb: string;
+	elt: Element;
+}
+
 interface Htmx {
 	ajax(method: string, url: string, options?: HtmxAjaxOptions | string | Element): void;
 	process(element: Element): void;
+}
+
+interface DocumentEventMap {
+	'htmx:configRequest': CustomEvent<HtmxConfigRequestDetail>;
 }
 
 interface Window {
