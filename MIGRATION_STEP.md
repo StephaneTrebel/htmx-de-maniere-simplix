@@ -13,7 +13,8 @@ servi par le backend Go : formulaire d'ajout, liste de commentaires, bouton de s
 
 Ce step introduit les **opérations d'écriture via HTMX** (`hx-post`, `hx-delete`) — les trois
 steps précédents n'utilisaient que `hx-get`. Il introduit également la **propagation du JWT**
-depuis la SPA Preact vers le backend Go via `hx-headers` hérité.
+depuis la SPA Preact vers le backend Go via le hook `htmx:configRequest`, sans jamais exposer
+le token dans le DOM.
 
 Le corps de l'article et les métadonnées (`ArticleMeta`) restent intentionnellement en Preact :
 ils nécessitent un rendu Markdown et des interactions (favorite, follow) liées à l'authentification.
@@ -28,44 +29,65 @@ ils nécessitent un rendu Markdown et des interactions (favorite, follow) liées
 | Formulaire ajout commentaire | Preact (`onSubmit → apiCreateComment`) | `hx-post` Go |
 | Bouton supprimer | Preact (`onClick → apiDeleteComment`) | `hx-delete` Go |
 | States dans Article.tsx | 4 (article, comments, commentBody, isLoading) | 2 (article, isLoading) |
-| JWT dans HTMX | — | `hx-headers` injecté par Preact, hérité par enfants Go |
+| JWT transmis à Go | — | `htmx:configRequest` — lu en mémoire Zustand, jamais dans le DOM |
 | Verbes HTTP HTMX | GET uniquement | GET + POST + DELETE |
-| `hx-swap` | `outerHTML` | **`innerHTML`** (le div parent reste pour conserver `hx-headers`) |
 
 ---
 
-## Nouveau concept : `hx-headers` hérité + `innerHTML`
+## Nouveau concept : `htmx:configRequest` — JWT depuis Zustand sans toucher le DOM
+
+HTMX déclenche un événement `htmx:configRequest` juste avant chaque requête. Son `detail.headers`
+est modifiable — c'est le point d'injection idéal pour un header d'authentification.
+
+Zustand expose `getState()` utilisable hors composant React, ce qui permet de lire le token
+en mémoire au moment exact de l'envoi :
+
+```ts
+// index.tsx — une seule fois, couvre tous les fragments HTMX de l'app
+document.addEventListener('htmx:configRequest', (e) => {
+  const token = useStore.getState().user?.token;
+  if (token) {
+    e.detail.headers['Authorization'] = `Token ${token}`;
+  }
+});
+```
+
+**Pourquoi c'est mieux que `hx-headers` dans le DOM :**
+
+| Approche | Token visible dans DevTools (Elements) | Token lisible par JS |
+|---|---|---|
+| `hx-headers='{"Authorization":"Token xxx"}'` | **Oui** | Oui |
+| `htmx:configRequest` | **Non** | Oui (mémoire Zustand) |
+
+Le token reste en mémoire JS (store Zustand), exactement là où il était. Il n'est jamais
+sérialisé dans un attribut HTML.
+
+---
+
+## Architecture de communication
 
 ```
-Article.tsx (Preact)
+index.tsx — listener global htmx:configRequest
+│   useStore.getState().user?.token  ← mémoire Zustand
+│   e.detail.headers['Authorization'] = 'Token xxx'
 │
+└── intercepte toutes les requêtes HTMX de l'app :
+    ├── GET  /hda/articles/:slug/comments  (chargement initial)
+    ├── POST /hda/articles/:slug/comments  (ajout commentaire)
+    └── DELETE /hda/articles/:slug/comments/:id  (suppression)
+
+Article.tsx
 └── <div id="comments"
          hx-get="/hda/articles/{slug}/comments?username=...&userImage=..."
          hx-trigger="load"
-         hx-swap="innerHTML"          ← innerHTML : le div reste dans le DOM
-         hx-headers='{"Authorization":"Token xxx"}'>   ← JWT injecté par Preact
-
-         │  Go rend à l'intérieur — hérite automatiquement de hx-headers
-         │
-         ├── <form hx-post="/hda/articles/{slug}/comments"
-         │         hx-target="#comments" hx-swap="innerHTML">
-         │     <input type="hidden" name="username" value="..."/>
-         │     <input type="hidden" name="userImage" value="..."/>
-         │     <textarea name="body"/>
-         │   </form>
-         │
-         └── <div class="card">
-               <i hx-delete="/hda/articles/{slug}/comments/42"
-                  hx-target="#comments" hx-swap="innerHTML"
-                  hx-vals='{"username":"..."}'>
-             </div>
+         hx-swap="innerHTML">          ← pas de hx-headers ici
 ```
 
-**Pourquoi `innerHTML` et non `outerHTML` ?**
+**Pourquoi `innerHTML` ?**
 
-Avec `outerHTML`, le `div#comments` est remplacé à chaque requête — ses `hx-headers` disparaissent
-du DOM. Les enfants Go perdent le JWT. Avec `innerHTML`, le div parent reste en place et ses attributs
-HTMX sont hérités par tous les éléments enfants, y compris ceux rendus par Go.
+Après un POST ou DELETE, Go re-rend le fragment complet (liste + formulaire).
+Avec `innerHTML`, le div `#comments` reste dans le DOM entre les réponses —
+HTMX peut toujours cibler `#comments` comme conteneur stable.
 
 ---
 
@@ -95,12 +117,27 @@ Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` a
 
 ---
 
-## Diff Preact — Article.tsx
+## Diff Preact
+
+### `index.tsx` — listener global ajouté
+
+```diff
++// Injecte le JWT Zustand dans chaque requête HTMX, sans exposer le token dans le DOM.
++document.addEventListener('htmx:configRequest', (e) => {
++  const token = useStore.getState().user?.token;
++  if (token) {
++    e.detail.headers['Authorization'] = `Token ${token}`;
++  }
++});
+
+ hydrate(<App />);
+```
+
+### `Article.tsx` — states 4→2, point de montage sans auth dans le DOM
 
 ```diff
 -import { useEffect, useState } from 'preact/hooks';
 +import { useEffect, useRef, useState } from 'preact/hooks';
-
 -import { ArticleCommentCard } from '../components/ArticleCommentCard';
 -import { apiCreateComment, apiGetComments } from '../services/api/comments';
 
@@ -110,32 +147,29 @@ Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` a
 -  const [commentBody, setCommentBody] = useState('');
    const [isLoading, setIsLoading] = useState(false);
 +  const commentsRef = useRef(null);
-   const user = useStore(state => state.user);
 
--  const postComment = async (e) => {
--    e.preventDefault();
--    const comment = await apiCreateComment(slug, commentBody);
--    setCommentBody('');
--    setComments(prev => [comment, ...prev]);
--  };
+-  const postComment = async (e) => { ... };
+-  useEffect(() => { setComments(await apiGetComments(slug)); }, [slug]);
 
-   useEffect(() => {
--    setComments(await apiGetComments(slug));
++  useEffect(() => {
 +    if (commentsRef.current) window.htmx.process(commentsRef.current);
--  }, [slug]);
 +  }, [article]);
 
-+  // Point de montage HTMX — step-04
-+  <div
-+    id="comments"
-+    ref={commentsRef}
-+    hx-get={commentsUrl}
-+    hx-trigger="load"
-+    hx-swap="innerHTML"
-+    hx-headers={hxHeaders}
-+  />
+-  // Formulaire + {comments.map(comment => <ArticleCommentCard ... />)}
++  <div id="comments" ref={commentsRef}
++       hx-get={commentsUrl} hx-trigger="load" hx-swap="innerHTML" />
+```
 
--  // Formulaire Preact + {comments.map(comment => <ArticleCommentCard ... />)}
+### `global.d.ts` — type `htmx:configRequest` ajouté
+
+```diff
++interface HtmxConfigRequestDetail {
++  headers: Record<string, string>;
++  ...
++}
++interface DocumentEventMap {
++  'htmx:configRequest': CustomEvent<HtmxConfigRequestDetail>;
++}
 ```
 
 ---
@@ -150,7 +184,9 @@ Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` a
 | `go-hda-backend/internal/templates/comments.templ` | créé — `CommentsFeed`, `commentCard` |
 | `go-hda-backend/internal/templates/comments_templ.go` | généré par `make templ` |
 | `go-hda-backend/cmd/server/main.go` | 3 nouvelles routes |
+| `preact-realworld-example-app/public/index.tsx` | listener `htmx:configRequest` global |
 | `preact-realworld-example-app/public/pages/Article.tsx` | states 4→2, point de montage HTMX |
+| `preact-realworld-example-app/public/types/global.d.ts` | type `HtmxConfigRequestDetail` |
 
 ### Non modifiés
 
@@ -165,11 +201,11 @@ Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` a
 ```mermaid
 flowchart TD
     A["🌐 Navigation vers /article/slug"]
-    B["Article.tsx — useEffect article\nfetch article + htmx.process(commentsRef)"]
-    C["🐹 Go → CommentsFeed\nformulaire + liste commentaires\n(innerHTML de #comments)"]
-    D["📝 Saisie + submit formulaire\nhx-post='/hda/.../comments'\nJWT hérité de #comments"]
+    B["Article.tsx — fetch article\nhtmx.process(commentsRef)"]
+    C["🐹 Go → CommentsFeed\nformulaire + liste\n(innerHTML de #comments)"]
+    D["📝 Submit formulaire\nhx-post — JWT via htmx:configRequest"]
     E["🐹 Go → CreateComment → GetComments\nCommentsFeed mis à jour"]
-    F["🗑️ Clic bouton supprimer\nhx-delete='/hda/.../comments/42'\nJWT hérité de #comments"]
+    F["🗑️ Clic supprimer\nhx-delete — JWT via htmx:configRequest"]
     G["🐹 Go → DeleteComment → GetComments\nCommentsFeed mis à jour"]
 
     A --> B --> C
@@ -209,9 +245,6 @@ cd preact-realworld-example-app && npm ci && npm run start
 # Build + vet Go
 cd go-hda-backend && go build ./... && go vet ./...
 
-# Génération templ
-cd go-hda-backend && make templ
-
 # Tester les fragments manuellement (backend Go lancé)
 curl http://localhost:3000/hda/tags
 curl "http://localhost:3000/hda/articles?tab=global&page=1"
@@ -229,13 +262,13 @@ git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo 
 > Sur la page article, la section commentaires : poster un commentaire, supprimer le sien.*
 >
 > *Le défi : les opérations d'écriture nécessitent le JWT de l'utilisateur. Mais ce JWT
-> vit dans le store Zustand de Preact. Comment le transmettre à HTMX sans le stocker
-> dans un cookie ou le réécrire dans Go ?*
+> vit dans le store Zustand de Preact — en mémoire JavaScript. Comment le transmettre à
+> HTMX sans l'exposer dans le DOM ?*
 >
-> *La réponse : `hx-headers` + `innerHTML`. Preact injecte le JWT une seule fois sur le
-> div conteneur. Comme on utilise `innerHTML` au lieu de `outerHTML`, ce div reste dans
-> le DOM. Tous les éléments Go à l'intérieur — le formulaire, les boutons supprimer —
-> héritent automatiquement du header Authorization. Zero duplication, zero cookie."*
+> *HTMX déclenche un événement `htmx:configRequest` juste avant chaque requête. On y
+> branche un listener dans `index.tsx` — une seule ligne — qui lit le token depuis Zustand
+> et l'injecte dans les headers. Le token ne touche jamais le DOM. Ça fonctionne pour
+> tous les fragments HTMX de l'app, actuels et futurs, sans rien changer d'autre."*
 
 ---
 
