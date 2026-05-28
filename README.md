@@ -56,6 +56,8 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 | `step-00-spa-json` | *(aucun — état initial)* | La SPA Preact pure : tout dans le navigateur, échanges JSON |
 | `step-01-go-hda-proxy` | **PopularTags** (sidebar des tags populaires) | Premier fragment HTML servi par Go ; infrastructure Traefik ; communication SPA ↔ HTMX via événement DOM |
 | `step-02-article-feed` | **ArticleFeed** (fil d'articles + tabs + pagination) | Fragment paramétré et auto-rafraîchissant ; navigation sans JS ; pont événement DOM → `htmx.ajax()` |
+| `step-03-profile` | **ProfileArticlesFeed** (articles d'un profil + tabs + pagination) | Fragment paramétré par un identifiant de route Preact ; routeur SPA → `htmx.ajax()` ; réutilisation de template Go entre pages |
+| `step-04-comments` | **CommentsFeed** (commentaires d'un article : liste + ajout + suppression) | Premières **opérations d'écriture** (`hx-post`, `hx-delete`) ; JWT injecté via `htmx:configRequest` depuis Zustand — jamais exposé dans le DOM |
 
 ---
 
