@@ -4,7 +4,7 @@ Ce fichier s'applique à l'ensemble du dépôt.
 
 ## Mission du dépôt
 
-Ce dépôt sert de support à une démonstration pédagogique de migration progressive d'une application RealWorld depuis une architecture **SPA + API JSON** vers une application **HDA** (*Hypermedia Driven Application*) servie principalement en **HTML côté serveur avec Go**, enrichie avec **HTMX** et des **Web Components Lit**.
+Ce dépôt sert de support à une démonstration pédagogique de migration progressive d'une application RealWorld depuis une architecture **SPA + API JSON** vers une application **HDA** (*Hypermedia Driven Application*) servie principalement en **HTML côté serveur avec Go**, enrichie avec **HTMX**.
 
 L'objectif n'est pas de réécrire tout d'un coup. L'objectif est de montrer, étape par étape, comment une équipe peut faire évoluer une application existante vers une architecture HTML-first.
 
@@ -39,10 +39,22 @@ La migration applicative est une pile stricte et linéaire de branches :
    - Établit le pattern de communication SPA ↔ Go : événement DOM custom `conduit:tag` dispatché par le fragment Go, écouté par `Home.tsx`.
    - L'URL reste unique (`localhost:1337`). L'utilisateur ne voit aucune différence visuelle.
 
-3. `step-02-*` à `step-0n-*`
-   - Chaque branche migre un composant ou un ensemble cohérent de composants.
-   - Les premiers composants ne sont pas encore figés.
-   - Chaque étape doit être petite, démontrable et compréhensible pendant la conférence.
+3. `step-02-article-feed`
+   - Migre **ArticleFeed** (Home) : fil d'articles, onglets Global/Tag Feed, pagination.
+   - Introduit le pattern fragment auto-rafraîchissant (`hx-swap="outerHTML"` + `hx-trigger` sur onglets/pagination).
+   - Pont JS : événement DOM `conduit:tag` → `htmx.ajax()` pour filtrer par tag sans setState Preact.
+
+4. `step-03-profile`
+   - Migre **ProfileArticlesFeed** (page profil) : onglets My Articles / Favorited, pagination.
+   - Introduit le fragment paramétré par une route Preact : `Profile.tsx` traduit `url` + `username` en `htmx.ajax()`.
+   - Réutilise `articleCard` du package Go `templates` sans duplication.
+
+5. `step-04-comments`
+   - Migre **CommentsFeed** (page article) : liste, formulaire d'ajout, bouton de suppression.
+   - Introduit les **opérations d'écriture** : `hx-post` et `hx-delete`.
+   - Propagation du JWT : listener `htmx:configRequest` dans `index.tsx` lit `useStore.getState()` en mémoire et injecte `Authorization` — le token ne touche jamais le DOM.
+
+Chaque étape doit être petite, démontrable et compréhensible pendant la conférence.
 
 Chaque branche `step-N` doit être construite à partir de `step-(N-1)`. Ne pas sauter d'étape, ne pas mélanger plusieurs jalons, et ne pas anticiper les composants des étapes suivantes tant qu'ils ne sont pas décidés.
 
