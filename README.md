@@ -43,7 +43,7 @@ flowchart LR
   <div hx-get="/hda/tags" hx-trigger="load" hx-swap="outerHTML" />
   ```
 - Le résultat dans le DOM est identique. L'utilisateur ne voit aucune différence.
-- La communication entre le HTML Go et le JS Preact restant se fait via des **événements DOM custom** — pas de couplage direct.
+- La communication entre les fragments Go et le JS Preact restant se fait via des **événements DOM custom** ou des appels `htmx.ajax()` — pas de couplage direct.
 
 ---
 
@@ -51,13 +51,84 @@ flowchart LR
 
 Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un périmètre précis.
 
-| Branche | Composant migré | Ce qu'on démontre |
-|---------|----------------|-------------------|
+| Branche | Composant migré | Concept clé introduit |
+|---------|----------------|----------------------|
 | `step-00-spa-json` | *(aucun — état initial)* | La SPA Preact pure : tout dans le navigateur, échanges JSON |
-| `step-01-go-hda-proxy` | **PopularTags** (sidebar des tags populaires) | Premier fragment HTML servi par Go ; infrastructure Traefik ; communication SPA ↔ HTMX via événement DOM |
-| `step-02-*` et suivantes | À définir | Migration composant par composant |
+| `step-01-go-hda-proxy` | **PopularTags** — sidebar des tags | Infrastructure Traefik ; premier fragment Go ; communication via événement DOM custom |
+| `step-02-article-feed` | **ArticleFeed** — fil d'articles + tabs + pagination | Fragment auto-rafraîchissant ; navigation sans JS ; `htmx.process()` pour SPA navigation |
+| `step-03-profile` | **ProfileArticlesFeed** — articles de profil + tabs + pagination | Fragment paramétré par une route Preact ; routeur SPA → `htmx.ajax()` ; réutilisation de template Go |
 
-> Les branches à partir de `step-02` ne sont pas encore figées.
+### Progression de la migration
+
+```mermaid
+flowchart TD
+    S00["step-00\nSPA pure\nTout en Preact"]
+    S01["step-01\nPopularTags → Go\nInfrastructure Traefik"]
+    S02["step-02\nArticleFeed → Go\nFragment auto-rafraîchissant"]
+    S03["step-03\nProfileArticles → Go\nFragment paramétré par route"]
+
+    S00 --> S01 --> S02 --> S03
+```
+
+### Ce qui change à chaque step
+
+| Composant / Zone | step-00 | step-01 | step-02 | step-03 |
+|---|---|---|---|---|
+| Popular Tags sidebar | Preact | **Go** | Go | Go |
+| Article Feed (Home) | Preact | Preact | **Go** | Go |
+| Pagination (Home) | Preact | Preact | **Go** | Go |
+| Articles de profil | Preact | Preact | Preact | **Go** |
+| Pagination (Profile) | Preact | Preact | Preact | **Go** |
+| Header de profil | Preact | Preact | Preact | Preact |
+| Page article + commentaires | Preact | Preact | Preact | Preact |
+| Formulaires (auth, editor) | Preact | Preact | Preact | Preact |
+
+---
+
+## Patterns de communication SPA ↔ Go
+
+Trois patterns émergent progressivement au fil des steps.
+
+### Pattern 1 — Événement DOM custom (step-01)
+
+Le fragment Go dispatche un événement, Preact l'écoute.
+
+```mermaid
+flowchart LR
+    Go["🐹 Fragment Go\n(PopularTags)"]
+    Event["CustomEvent\n'conduit:tag'"]
+    Preact["⚛️ Preact\n(Home.tsx)"]
+
+    Go -->|"onclick dispatche"| Event -->|"document.addEventListener"| Preact
+```
+
+### Pattern 2 — Fragment auto-rafraîchissant (step-02)
+
+Le fragment se recharge lui-même via `hx-get`. Preact n'intervient que pour l'initialisation.
+
+```mermaid
+flowchart LR
+    Mount["⚛️ Point de montage\nhx-trigger='load'"]
+    Go["🐹 Fragment Go\n(ArticleFeed)\nid='article-feed'"]
+    Buttons["Onglets + pagination\nhx-target='#article-feed'\nhx-swap='outerHTML'"]
+
+    Mount -->|"charge"| Go
+    Buttons -->|"rechargent"| Go
+```
+
+### Pattern 3 — Route Preact → fragment Go (step-03)
+
+Preact traduit les paramètres de route en query params HTMX.
+
+```mermaid
+flowchart LR
+    Router["⚛️ Routeur Preact\n/@username/favorites"]
+    UseEffect["useEffect\n[url, username]"]
+    Ajax["htmx.ajax()\n'/hda/profile/articles\n?username=...&type=favorited'"]
+    Go["🐹 Fragment Go\n(ProfileArticlesFeed)"]
+
+    Router -->|"url change"| UseEffect -->|"appelle"| Ajax -->|"charge"| Go
+```
 
 ---
 
@@ -105,67 +176,51 @@ docker compose version    # doit afficher Docker Compose version v2+
 
 ```bash
 git checkout step-00-spa-json
-cd preact-realworld-example-app
-npm ci
-npm run start
+cd preact-realworld-example-app && npm ci && npm run start
 ```
 
 Ouvrir : **http://localhost:8080**
 
-Toute la logique est dans le navigateur. L'application appelle directement `https://api.realworld.show/api`.
-Aucun backend Go, aucun Traefik.
+Toute la logique est dans le navigateur. Aucun backend Go, aucun Traefik.
 
 ---
 
-### `step-01-go-hda-proxy` — PopularTags migré vers Go + HTMX
+### `step-01-go-hda-proxy` — PopularTags → Go
 
 ```bash
 git checkout step-01-go-hda-proxy
-```
-
-#### Ce qui a changé par rapport à step-00
-
-| | step-00-spa-json | step-01-go-hda-proxy |
-|---|---|---|
-| PopularTags | Rendu côté client (Preact + fetch JSON) | Fragment HTML côté serveur (Go + templ) |
-| Chargement des tags | `apiGetAllTags()` dans un `useEffect` | `hx-get="/hda/tags"` → backend Go |
-| Communication avec la SPA | Callback `onClick` prop | Événement DOM custom `conduit:tag` |
-| URL de l'application | `http://localhost:8080` | `http://localhost:1337` (via Traefik) |
-| Reverse proxy | Aucun | Traefik sur `:1337` |
-
-#### Mode stack complète (Docker + Traefik) — recommandé
-
-```bash
-cd reverse-proxy
-cp .env.example .env
-docker compose up --build
+cd reverse-proxy && cp .env.example .env && docker compose up --build
 ```
 
 Ouvrir : **http://localhost:1337**
 
-| URL | Service |
-|-----|---------|
-| **http://localhost:1337** | Application (SPA + fragments Go, URL unique) |
-| http://localhost:8080 | Dashboard Traefik |
+**À observer :** onglet Réseau → `GET /hda/tags` retourne du HTML, pas du JSON. Cliquer sur un tag met à jour le fil d'articles via un événement DOM.
 
-Pour vérifier que la migration fonctionne : ouvrez l'onglet **Réseau** du navigateur et rechargez la page. Vous verrez une requête `GET /hda/tags` qui retourne du **HTML**, pas du JSON. La sidebar des tags populaires est servie par Go.
+---
 
-#### Mode développement (sans Docker)
+### `step-02-article-feed` — ArticleFeed → Go
 
-> ⚠️ En mode dev sans Traefik, le `hx-get="/hda/tags"` nécessite une configuration du proxy WMR
-> pour rediriger `/hda/*` vers `localhost:3000`. Utiliser la stack Docker est plus simple.
-
-**Terminal 1 — Backend Go :**
 ```bash
-cd go-hda-backend
-make dev   # génère les templates templ + démarre en mode watch sur :3000
+git checkout step-02-article-feed
+cd reverse-proxy && cp .env.example .env && docker compose up --build
 ```
 
-**Terminal 2 — SPA Preact :**
+Ouvrir : **http://localhost:1337**
+
+**À observer :** `GET /hda/articles?tab=global&page=1` retourne du HTML. La pagination et les onglets rechargent le fragment sans JavaScript côté client.
+
+---
+
+### `step-03-profile` — ProfileArticles → Go
+
 ```bash
-cd preact-realworld-example-app
-npm ci && npm run start   # http://localhost:8080
+git checkout step-03-profile
+cd reverse-proxy && cp .env.example .env && docker compose up --build
 ```
+
+Ouvrir : **http://localhost:1337** → cliquer sur le nom d'un auteur d'article.
+
+**À observer :** `GET /hda/profile/articles?username=...&type=author&page=1` retourne du HTML. Les onglets "My Articles" / "Favorited Articles" rechargent le fragment sans quitter la page.
 
 ---
 
@@ -185,7 +240,7 @@ make clean   # supprime le binaire et les *_templ.go générés
 ### SPA Preact (`preact-realworld-example-app/`)
 
 ```bash
-npm run start       # serveur de développement (port 8080)
+npm run start   # serveur de développement (port 8080)
 npm run build   # build de production dans dist/
 ```
 
@@ -199,50 +254,37 @@ npm run build   # build de production dans dist/
 │   ├── public/
 │   │   ├── index.html              #   charge HTMX via CDN (step-01+)
 │   │   ├── components/
-│   │   │   └── PopularTags.tsx     #   ← point de montage HTMX (step-01)
-│   │   └── pages/
-│   │       └── Home.tsx            #   écoute l'événement DOM conduit:tag (step-01)
-│   └── Dockerfile                  #   build WMR + serve statique
+│   │   │   └── PopularTags.tsx     #   point de montage HTMX (step-01)
+│   │   ├── pages/
+│   │   │   ├── Home.tsx            #   pont conduit:tag + htmx.ajax() (step-02)
+│   │   │   └── Profile.tsx         #   pont routeur Preact → htmx.ajax() (step-03)
+│   │   └── types/
+│   │       └── global.d.ts         #   types hx-*, window.htmx
+│   └── Dockerfile
 ├── go-hda-backend/                 # Backend Go — sert les fragments sur /hda/*
-│   ├── cmd/server/main.go          #   serveur Echo, routes /hda/*
+│   ├── cmd/server/main.go          #   serveur Echo, toutes les routes /hda/*
 │   ├── Makefile
 │   ├── Dockerfile
 │   └── internal/
-│       ├── api/                    #   client HTTP vers api.realworld.show
-│       │   ├── client.go
-│       │   ├── types.go
-│       │   └── tags.go
+│       ├── api/
+│       │   ├── client.go           #   client HTTP vers api.realworld.show
+│       │   ├── types.go            #   types partagés (Article, Author, etc.)
+│       │   ├── tags.go             #   GetTags()
+│       │   └── articles.go         #   GetArticles() + GetProfileArticles()
 │       ├── handlers/
-│       │   └── tags.go             #   GET /hda/tags → fragment HTML
+│       │   ├── tags.go             #   GET /hda/tags
+│       │   ├── articles.go         #   GET /hda/articles
+│       │   └── profile_articles.go #   GET /hda/profile/articles
 │       └── templates/
-│           ├── tags.templ          #   template du fragment PopularTags
-│           └── tags_templ.go       #   généré par templ generate
-├── reverse-proxy/                  # Traefik — URL unique localhost:1337
-│   ├── docker-compose.yml          #   Traefik + Go HDA + SPA, routing PathPrefix
+│           ├── tags.templ          #   PopularTags sidebar
+│           ├── articles.templ      #   ArticleFeed + articleCard (réutilisé)
+│           └── profile_articles.templ  #   ProfileArticlesFeed
+├── reverse-proxy/                  # Traefik v3 — URL unique localhost:1337
+│   ├── docker-compose.yml
 │   ├── .env.example
-│   └── traefik/
-│       └── traefik.yml             #   entrypoint :1337, provider Docker
-├── presentation/                   # Deck SliDesk — jamais touché dans step-*
+│   └── traefik/traefik.yml
+├── presentation/                   # Deck SliDesk — jamais modifié dans step-*
 ├── AGENTS.md                       # Vision et règles du dépôt
-├── MIGRATION_STEP.md               # Description du step courant
-└── README.md
+├── MIGRATION_STEP.md               # Description du step courant (par branche)
+└── README.md                       # Ce fichier — introduction générale (trunk)
 ```
-
----
-
-## Architecture de communication HTMX → SPA
-
-Quand l'utilisateur clique un tag dans le fragment Go :
-
-```mermaid
-flowchart TD
-    A["🖱️ Clic sur un tag\nfragment HTML servi par Go"]
-    B["onclick dispatche\nCustomEvent('conduit:tag', { detail: tagname })"]
-    C["Home.tsx écoute 'conduit:tag'\ndocument.addEventListener"]
-    D["State Preact mis à jour\nsetTag · setCurrentActiveTab('tag')"]
-    E["Fil d'articles rechargé\nencore rendu côté client"]
-
-    A --> B --> C --> D --> E
-```
-
-Ce pattern **découple le HTML Go du JS Preact** : ils ne se connaissent pas directement, ils communiquent via le DOM. C'est intentionnel et pédagogique.
