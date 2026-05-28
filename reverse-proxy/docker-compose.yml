@@ -21,7 +21,7 @@ services:
 
   # ── Reverse proxy ──────────────────────────────────────────────────────────
   traefik:
-    image: traefik:v2.11
+    image: traefik:v3.7.1
     container_name: traefik
     restart: unless-stopped
     ports:
