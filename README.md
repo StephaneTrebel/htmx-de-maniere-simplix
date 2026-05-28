@@ -56,6 +56,7 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 | `step-00-spa-json` | *(aucun — état initial)* | La SPA Preact pure : tout dans le navigateur, échanges JSON |
 | `step-01-go-hda-proxy` | **PopularTags** (sidebar des tags populaires) | Premier fragment HTML servi par Go ; infrastructure Traefik ; communication SPA ↔ HTMX via événement DOM |
 | `step-02-article-feed` | **ArticleFeed** (fil d'articles + tabs + pagination) | Fragment paramétré et auto-rafraîchissant ; navigation sans JS ; pont événement DOM → `htmx.ajax()` |
+| `step-03-profile` | **ProfileArticlesFeed** (articles d'un profil + tabs + pagination) | Fragment paramétré par un identifiant de route Preact ; routeur SPA → `htmx.ajax()` ; réutilisation de template Go entre pages |
 
 ---
 
@@ -237,6 +238,53 @@ Cliquez sur un tag dans la sidebar : requête `GET /hda/articles?tab=tag&tag=NOM
 
 ---
 
+### `step-03-profile` — articles de profil migrés vers Go + HTMX
+
+```bash
+git checkout step-03-profile
+```
+
+#### Ce qui a changé par rapport à step-02
+
+| | step-02-article-feed | step-03-profile |
+|---|---|---|
+| Articles de profil | Rendu Preact (useEffect + apiGetArticles) | Fragment HTML Go |
+| Onglets My Articles / Favorited | Gérés par URL Preact + état | Rendus dans le fragment Go |
+| Pagination profil | Composant Preact `<Pagination>` | Rendue dans le fragment Go |
+| States dans Profile.tsx | 5 | 1 (user — pour le header) |
+| Route Go ajoutée | — | `GET /hda/profile/articles?username&type&page` |
+
+#### Nouveau concept : fragment paramétré par une route Preact
+
+En step-02, le fragment chargeait des paramètres issus d'un état interne (tag sélectionné, page).
+
+En step-03, le fragment est paramétré par un **identifiant de ressource externe** : le `username` vient du routeur Preact (`/:username`), et le type d'onglet est déduit de l'URL (`/@username` vs `/@username/favorites`). `Profile.tsx` sert de pont :
+
+```mermaid
+flowchart TD
+    A["🌐 Navigation vers /@username"]
+    B["Profile.tsx — useEffect url+username\ntype = url.includes('favorites') ? 'favorited' : 'author'\nhtmx.ajax('/hda/profile/articles?username=...&type=...')"]
+    C["🐹 Go → ProfileArticlesFeed\ntabs + articles + pagination\n(id='profile-articles')"]
+    D["🖱️ Clic onglet / pagination\nhx-get='...'\nhx-target='#profile-articles'"]
+    E["🐹 Go → ProfileArticlesFeed rechargé"]
+
+    A --> B --> C --> D --> E
+```
+
+#### Mode stack complète (Docker + Traefik) — recommandé
+
+```bash
+cd reverse-proxy
+cp .env.example .env
+docker compose up --build
+```
+
+Ouvrir : **http://localhost:1337** puis naviguer vers le profil d'un utilisateur (cliquer sur un auteur d'article).
+
+Pour vérifier la migration : onglet **Réseau** → naviguez vers un profil → vous verrez `GET /hda/profile/articles?username=...&type=author&page=1`. Cliquez sur "Favorited Articles" dans le fragment → nouvelle requête avec `type=favorited`, sans rechargement de page.
+
+---
+
 ## Commandes utiles
 
 ### Backend Go (`go-hda-backend/`)
@@ -269,7 +317,8 @@ npm run build   # build de production dans dist/
 │   │   ├── components/
 │   │   │   └── PopularTags.tsx     #   ← point de montage HTMX (step-01)
 │   │   ├── pages/
-│   │   │   └── Home.tsx            #   pont conduit:tag → htmx.ajax() (step-02)
+│   │   │   ├── Home.tsx            #   pont conduit:tag → htmx.ajax() (step-02)
+│   │   │   └── Profile.tsx         #   pont routeur → htmx.ajax() (step-03)
 │   │   └── types/
 │   │       └── global.d.ts         #   types hx-*, window.htmx (step-01+)
 │   └── Dockerfile                  #   build WMR + serve statique
@@ -282,15 +331,18 @@ npm run build   # build de production dans dist/
 │       │   ├── client.go
 │       │   ├── types.go            #   TagsResponse, Article, Author, ArticlesResponse
 │       │   ├── tags.go             #   GetTags()
-│       │   └── articles.go         #   GetArticles(page, tag) (step-02)
+│       │   └── articles.go         #   GetArticles + GetProfileArticles (step-02/03)
 │       ├── handlers/
 │       │   ├── tags.go             #   GET /hda/tags → fragment HTML
-│       │   └── articles.go         #   GET /hda/articles → fragment HTML (step-02)
+│       │   ├── articles.go         #   GET /hda/articles → fragment HTML (step-02)
+│       │   └── profile_articles.go #   GET /hda/profile/articles → fragment HTML (step-03)
 │       └── templates/
 │           ├── tags.templ          #   template du fragment PopularTags
 │           ├── tags_templ.go       #   généré par templ generate
-│           ├── articles.templ      #   template du fragment ArticleFeed (step-02)
-│           └── articles_templ.go   #   généré par templ generate (step-02)
+│           ├── articles.templ      #   template ArticleFeed + articleCard partagé (step-02)
+│           ├── articles_templ.go   #   généré par templ generate
+│           ├── profile_articles.templ     #   template ProfileArticlesFeed (step-03)
+│           └── profile_articles_templ.go  #   généré par templ generate
 ├── reverse-proxy/                  # Traefik — URL unique localhost:1337
 │   ├── docker-compose.yml          #   Traefik + Go HDA + SPA, routing PathPrefix
 │   ├── .env.example

@@ -1,0 +1,75 @@
+package templates
+
+import (
+	"conduit-hda/internal/api"
+	"fmt"
+	"net/url"
+	"strconv"
+)
+
+// ProfileArticlesFeed est le fragment HTML de la liste d'articles d'un profil.
+// Il remplace la partie articles de Profile.tsx côté serveur.
+//
+// Même pattern auto-rafraîchissant que ArticleFeed (step-02) :
+// les onglets "My Articles" / "Favorited Articles" et la pagination
+// rechargent ce fragment via hx-get, sans JavaScript.
+//
+// Nouveau concept par rapport à step-02 : le fragment est paramétré par un
+// identifiant de ressource (username) provenant du routeur Preact, pas d'un
+// état interne. Profile.tsx passe ce paramètre lors du chargement initial
+// puis laisse le fragment gérer sa propre navigation.
+templ ProfileArticlesFeed(articles []api.Article, username string, articleType string, page int, totalPages int) {
+	<div id="profile-articles">
+		<!-- Onglets My Articles / Favorited Articles -->
+		<div class="articles-toggle">
+			<ul class="nav nav-pills outline-active">
+				<li class="nav-item">
+					<a
+						class={ "nav-link", templ.KV("active", articleType == "author") }
+						href="#"
+						hx-get={ fmt.Sprintf("/hda/profile/articles?username=%s&type=author&page=1", url.QueryEscape(username)) }
+						hx-target="#profile-articles"
+						hx-swap="outerHTML"
+					>My Articles</a>
+				</li>
+				<li class="nav-item">
+					<a
+						class={ "nav-link", templ.KV("active", articleType == "favorited") }
+						href="#"
+						hx-get={ fmt.Sprintf("/hda/profile/articles?username=%s&type=favorited&page=1", url.QueryEscape(username)) }
+						hx-target="#profile-articles"
+						hx-swap="outerHTML"
+					>Favorited Articles</a>
+				</li>
+			</ul>
+		</div>
+		<!-- Liste d'articles — réutilise articleCard de articles.templ (même package) -->
+		if len(articles) == 0 {
+			<div class="article-preview">No articles are here... yet.</div>
+		}
+		for _, article := range articles {
+			@articleCard(article)
+		}
+		<!-- Pagination -->
+		if totalPages > 1 {
+			@profilePagination(username, articleType, page, totalPages)
+		}
+	</div>
+}
+
+// profilePagination génère la pagination pour le fil d'articles d'un profil.
+templ profilePagination(username string, articleType string, currentPage int, totalPages int) {
+	<ul class="pagination">
+		for i := range totalPages {
+			<li class={ "page-item", templ.KV("active", i+1 == currentPage) }>
+				<a
+					class="page-link"
+					href="#"
+					hx-get={ fmt.Sprintf("/hda/profile/articles?username=%s&type=%s&page=%d", url.QueryEscape(username), articleType, i+1) }
+					hx-target="#profile-articles"
+					hx-swap="outerHTML"
+				>{ strconv.Itoa(i + 1) }</a>
+			</li>
+		}
+	</ul>
+}

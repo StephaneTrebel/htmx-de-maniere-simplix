@@ -27,6 +27,9 @@ func main() {
 	// step-02 : fil d'articles (Global Feed + Tag Feed + Pagination)
 	e.GET("/hda/articles", handlers.ArticlesHandler)
 
+	// step-03 : articles d'un profil (My Articles + Favorited Articles + Pagination)
+	e.GET("/hda/profile/articles", handlers.ProfileArticlesHandler)
+
 	// Port
 	port := os.Getenv("PORT")
 	if port == "" {
