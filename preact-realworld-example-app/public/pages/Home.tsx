@@ -1,53 +1,54 @@
-import { useEffect, useState } from 'preact/hooks';
+/**
+ * Home — step-02-article-feed
+ *
+ * Migrations effectuées par rapport à step-01 :
+ *
+ * Avant (step-01) :
+ *   - 6 states Preact (articles, articlesCount, isLoading, page, currentActiveTab, tag)
+ *   - useEffect fetchFeeds : appel API JSON → setArticles / setArticlesCount
+ *   - useEffect conduit:tag → setState (setTag, setCurrentActiveTab, setPage)
+ *   - JSX du col-md-9 : tabs + ArticlePreview[n] + Pagination (Preact)
+ *
+ * Après (step-02) :
+ *   - 0 state article — le fragment Go est la source de vérité
+ *   - useEffect conduit:tag → htmx.ajax() — pont de 6 lignes, plus de setState
+ *   - col-md-9 = un seul point de montage HTMX <div id="article-feed" hx-get="..." />
+ *   - tabs, articles, pagination : tous rendus et gérés côté Go (templates/articles.templ)
+ *
+ * L'utilisateur ne voit aucune différence visuelle.
+ */
+import { useEffect } from 'preact/hooks';
 
-import { ArticlePreview } from '../components/ArticlePreview';
-import { LoadingIndicator } from '../components/LoadingIndicator';
-import { Pagination } from '../components/Pagination';
 import { PopularTags } from '../components/PopularTags';
-import { apiGetArticles, apiGetFeed } from '../services/api/article';
 import { useStore } from '../store';
 
 export default function HomePage() {
 	const isAuthenticated = useStore(state => !!state.user);
 
-	const [articles, setArticles] = useState<Article[]>([]);
-	const [articlesCount, setArticlesCount] = useState(0);
-	const [page, setPage] = useState(1);
-	const [currentActiveTab, setCurrentActiveTab] = useState(isAuthenticated ? 'personal' : 'global');
-	const [tag, setTag] = useState('');
-	const [isLoading, setIsLoading] = useState(false);
+	// HTMX ne scanne pas automatiquement les éléments ajoutés par le routeur SPA.
+	// Quand l'utilisateur revient sur Home depuis une autre page, Preact recrée
+	// le <div id="article-feed"> mais HTMX ne le voit pas — hx-trigger="load"
+	// ne se déclencherait jamais. htmx.process() lui signale le nouvel élément.
+	useEffect(() => {
+		const el = document.getElementById('article-feed');
+		if (el) window.htmx.process(el);
+	}, []);
 
-	// Écoute l'événement DOM dispatché par le fragment HTMX PopularTags (Go backend).
-	// C'est le seul point de couplage entre le HTML Go et le JS Preact : le DOM custom event.
+	// Pont entre le fragment PopularTags (Go) et le fragment ArticleFeed (Go).
+	// Quand l'utilisateur clique un tag dans la sidebar, le fragment Go dispatche
+	// "conduit:tag". Ce useEffect capte l'événement et demande à HTMX de recharger
+	// le fil d'articles avec le tag sélectionné — sans aucun setState Preact.
 	useEffect(() => {
 		const handler = (e: Event) => {
-			const selectedTag = (e as CustomEvent<string>).detail;
-			setCurrentActiveTab('tag');
-			setTag(selectedTag);
-			setPage(1);
+			const tag = (e as CustomEvent<string>).detail;
+			window.htmx.ajax('GET', `/hda/articles?tab=tag&tag=${encodeURIComponent(tag)}&page=1`, {
+				target: '#article-feed',
+				swap: 'outerHTML',
+			});
 		};
 		document.addEventListener('conduit:tag', handler);
 		return () => document.removeEventListener('conduit:tag', handler);
 	}, []);
-
-	useEffect(() => {
-		(async function fetchFeeds() {
-			setIsLoading(true);
-			let articles: Article[] = [];
-			let articlesCount = 0;
-			switch (currentActiveTab) {
-				case 'personal':
-					({ articles, articlesCount } = await apiGetFeed(page));
-					break;
-				default:
-					({ articles, articlesCount } = await apiGetArticles(page, currentActiveTab === 'tag' ? { tag } : undefined));
-					break;
-			}
-			setArticles(articles);
-			setArticlesCount(articlesCount);
-			setIsLoading(false);
-		})();
-	}, [currentActiveTab, page, tag]);
 
 	return (
 		<div class="home-page">
@@ -63,54 +64,27 @@ export default function HomePage() {
 			<div class="container page">
 				<div class="row">
 					<div class="col-md-9">
-						<div class="feed-toggle">
-							<ul class="nav nav-pills outline-active">
-								{isAuthenticated && (
-									<li class="nav-item">
-										<a
-											class={`nav-link ${currentActiveTab === 'personal' ? 'active' : ''}`}
-											href="#"
-											onClick={() => setCurrentActiveTab('personal')}
-										>
-											Your Feed
-										</a>
-									</li>
-								)}
-								<li class="nav-item">
-									<a
-										class={`nav-link ${currentActiveTab === 'global' ? 'active' : ''}`}
-										href="#"
-										onClick={() => setCurrentActiveTab('global')}
-									>
-										Global Feed
-									</a>
-								</li>
-								{currentActiveTab === 'tag' && (
-									<li class="nav-item">
-										<a class="nav-link active" href="#">
-											# {tag}
-										</a>
-									</li>
-								)}
-							</ul>
-						</div>
-
-						{isLoading ? (
-							<LoadingIndicator show={isLoading} style={{ margin: '1rem auto', display: 'flex' }} width="2em" />
-						) : articles.length > 0 ? (
-							articles.map(article => <ArticlePreview key={article.slug} article={article} />)
-						) : (
-							<div class="article-preview">No articles are here... yet.</div>
-						)}
-
-						{!isLoading && <Pagination count={articlesCount} page={page} setPage={setPage} />}
+						{/*
+						 * Point de montage HTMX — step-02.
+						 * HTMX charge GET /hda/articles?tab=global&page=1 au montage
+						 * et remplace cet élément par le fragment Go (outerHTML).
+						 * Le fragment lui-même contient les onglets et la pagination ;
+						 * toute navigation s'effectue ensuite sans JS.
+						 */}
+						<div
+							id="article-feed"
+							hx-get="/hda/articles?tab=global&page=1"
+							hx-trigger="load"
+							hx-swap="outerHTML"
+						/>
 					</div>
 
 					<div class="col-md-3">
-						{/* PopularTags est maintenant un point de montage HTMX.
-						    Le fragment HTML est chargé depuis /hda/tags par le backend Go.
-						    Au clic sur un tag, le fragment dispatche l'événement DOM "conduit:tag"
-						    que ce composant écoute via le useEffect ci-dessus. */}
+						{/*
+						 * PopularTags reste un point de montage HTMX (step-01).
+						 * Au clic sur un tag, le fragment dispatche "conduit:tag"
+						 * que le useEffect ci-dessus intercepte pour recharger #article-feed.
+						 */}
 						<PopularTags />
 					</div>
 				</div>

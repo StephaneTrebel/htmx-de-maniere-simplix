@@ -24,6 +24,9 @@ func main() {
 	// step-01 : PopularTags sidebar
 	e.GET("/hda/tags", handlers.TagsHandler)
 
+	// step-02 : fil d'articles (Global Feed + Tag Feed + Pagination)
+	e.GET("/hda/articles", handlers.ArticlesHandler)
+
 	// Port
 	port := os.Getenv("PORT")
 	if port == "" {

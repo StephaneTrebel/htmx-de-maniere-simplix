@@ -1,0 +1,132 @@
+package templates
+
+import (
+	"conduit-hda/internal/api"
+	"fmt"
+	"strconv"
+)
+
+// ArticleFeed est le fragment HTML du fil d'articles de la page d'accueil.
+// Il remplace la colonne col-md-9 de Home.tsx côté serveur.
+//
+// Le fragment est auto-rafraîchissant : chaque onglet de tab bar et chaque bouton
+// de pagination contient un hx-get qui recharge ce même fragment avec les nouveaux
+// paramètres (tab, tag, page). Aucun JS n'est nécessaire pour naviguer à l'intérieur.
+//
+// Le seul événement DOM externe qu'il reçoit est "conduit:tag", dispatché par le
+// fragment PopularTags (tags.templ). Home.tsx sert de pont : il capte cet événement
+// et déclenche un htmx.ajax() vers /hda/articles?tab=tag&tag=...
+templ ArticleFeed(articles []api.Article, tab string, tag string, page int, totalPages int) {
+	<div id="article-feed">
+		<!-- Tab bar -->
+		<div class="feed-toggle">
+			<ul class="nav nav-pills outline-active">
+				<li class="nav-item">
+					<a
+						class={ "nav-link", templ.KV("active", tab == "global") }
+						href="#"
+						hx-get="/hda/articles?tab=global&page=1"
+						hx-target="#article-feed"
+						hx-swap="outerHTML"
+					>Global Feed</a>
+				</li>
+				if tab == "tag" && tag != "" {
+					<li class="nav-item">
+						<a class="nav-link active" href="#"># { tag }</a>
+					</li>
+				}
+			</ul>
+		</div>
+		<!-- Liste d'articles -->
+		if len(articles) == 0 {
+			<div class="article-preview">No articles are here... yet.</div>
+		}
+		for _, article := range articles {
+			@articleCard(article)
+		}
+		<!-- Pagination -->
+		if totalPages > 1 {
+			@pagination(tab, tag, page, totalPages)
+		}
+	</div>
+}
+
+// articleCard génère la carte de prévisualisation d'un article.
+//
+// Note : le bouton "favorite" (❤) est rendu statiquement en step-02.
+// La route POST /hda/articles/:slug/favorite sera implémentée dans un step ultérieur.
+templ articleCard(article api.Article) {
+	<div class="article-preview">
+		<div class="article-meta">
+			<a href={ templ.URL("/@" + article.Author.Username) }>
+				<img src={ avatarURL(article.Author.Image) } alt="User's profile picture"/>
+			</a>
+			<div class="info">
+				<a href={ templ.URL("/@" + article.Author.Username) } class="author">
+					{ article.Author.Username }
+				</a>
+				<span class="date">{ formatDate(article.CreatedAt) }</span>
+			</div>
+			<button
+				class={ "btn btn-sm pull-xs-right", templ.KV("btn-primary", article.Favorited), templ.KV("btn-outline-primary", !article.Favorited) }
+				disabled
+				title="La fonctionnalité favorite sera disponible dans un prochain step"
+			>
+				<i class="ion-heart"></i> { strconv.Itoa(article.FavoritesCount) }
+			</button>
+		</div>
+		<a class="preview-link" href={ templ.URL("/article/" + article.Slug) }>
+			<h1>{ article.Title }</h1>
+			<p>{ article.Description }</p>
+			<span>Read more...</span>
+		</a>
+	</div>
+}
+
+// pagination génère la liste de pagination HTMX.
+// Chaque bouton recharge #article-feed avec la page cible.
+templ pagination(tab string, tag string, currentPage int, totalPages int) {
+	<ul class="pagination">
+		for i := range totalPages {
+			<li class={ "page-item", templ.KV("active", i+1 == currentPage) }>
+				<a
+					class="page-link"
+					href="#"
+					hx-get={ fmt.Sprintf("/hda/articles?tab=%s&tag=%s&page=%d", tab, tag, i+1) }
+					hx-target="#article-feed"
+					hx-swap="outerHTML"
+				>{ strconv.Itoa(i + 1) }</a>
+			</li>
+		}
+	</ul>
+}
+
+// avatarURL retourne l'URL de l'avatar ou l'avatar par défaut si vide.
+func avatarURL(image string) string {
+	if image == "" {
+		return api.DefaultAvatar
+	}
+	return image
+}
+
+// formatDate formate une date ISO 8601 en format lisible (ex: "January 2, 2006").
+func formatDate(iso string) string {
+	if len(iso) < 10 {
+		return iso
+	}
+	// Parsing simplifié : on lit les 10 premiers caractères "YYYY-MM-DD"
+	year := iso[0:4]
+	month := iso[5:7]
+	day := iso[8:10]
+
+	months := map[string]string{
+		"01": "January", "02": "February", "03": "March",
+		"04": "April", "05": "May", "06": "June",
+		"07": "July", "08": "August", "09": "September",
+		"10": "October", "11": "November", "12": "December",
+	}
+	if m, ok := months[month]; ok {
+		return m + " " + day + ", " + year
+	}
+	return iso[:10]
+}

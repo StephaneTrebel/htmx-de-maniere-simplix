@@ -23,3 +23,22 @@ declare namespace preact.JSX {
 		'hx-headers'?: string;
 	}
 }
+
+// ── API HTMX exposée sur window ───────────────────────────────────────────────
+// Utilisée en step-02 pour déclencher programmatiquement un rechargement du
+// fragment #article-feed quand l'événement "conduit:tag" est reçu de PopularTags.
+interface HtmxAjaxOptions {
+	target?: string | Element;
+	swap?: string;
+	values?: Record<string, string>;
+	headers?: Record<string, string>;
+}
+
+interface Htmx {
+	ajax(method: string, url: string, options?: HtmxAjaxOptions | string | Element): void;
+	process(element: Element): void;
+}
+
+interface Window {
+	htmx: Htmx;
+}

@@ -1,11 +1,15 @@
 ###############################################################################
-# Stack Conduit — step-01-go-hda-proxy
+# Stack Conduit — step-02-article-feed
 #
 # URL unique : http://localhost:1337
 #
 # Routing Traefik (par PathPrefix, ordre de priorité) :
 #   /hda/*   →  Go HDA backend   (fragments HTML servis par Go + templ)
 #   /*       →  SPA Preact        (shell JS, routing client-side)
+#
+# Fragments Go disponibles :
+#   GET /hda/tags                            → sidebar PopularTags (step-01)
+#   GET /hda/articles?tab=&tag=&page=        → fil d'articles (step-02)
 #
 # Démarrage :
 #   docker compose up --build

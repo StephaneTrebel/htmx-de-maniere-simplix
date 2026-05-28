@@ -9,3 +9,28 @@ type TagsResponse struct {
 type ErrorResponse struct {
 	Errors map[string][]string `json:"errors"`
 }
+
+// Author représente l'auteur d'un article.
+type Author struct {
+	Username  string `json:"username"`
+	Image     string `json:"image"`
+	Following bool   `json:"following"`
+}
+
+// Article représente un article RealWorld.
+type Article struct {
+	Slug           string   `json:"slug"`
+	Title          string   `json:"title"`
+	Description    string   `json:"description"`
+	TagList        []string `json:"tagList"`
+	CreatedAt      string   `json:"createdAt"`
+	Favorited      bool     `json:"favorited"`
+	FavoritesCount int      `json:"favoritesCount"`
+	Author         Author   `json:"author"`
+}
+
+// ArticlesResponse est la réponse de l'endpoint GET /articles.
+type ArticlesResponse struct {
+	Articles      []Article `json:"articles"`
+	ArticlesCount int       `json:"articlesCount"`
+}
