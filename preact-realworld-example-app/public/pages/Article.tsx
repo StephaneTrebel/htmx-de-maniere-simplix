@@ -1,13 +1,31 @@
-import { useEffect, useState } from 'preact/hooks';
+/**
+ * Article — step-04-comments
+ *
+ * Migrations effectuées par rapport à step-03 :
+ *
+ * Avant (step-03) :
+ *   - 4 states Preact (article, comments, commentBody, isLoading)
+ *   - useEffect : apiGetComments → setComments
+ *   - postComment : apiCreateComment → setComments
+ *   - ArticleCommentCard avec onDelete callback → setComments
+ *   - JSX : formulaire + liste de commentaires gérés en Preact
+ *
+ * Après (step-04) :
+ *   - 2 states (article, isLoading) — les commentaires sont la responsabilité du fragment Go
+ *   - Point de montage HTMX <div id="comments" hx-get="..." hx-trigger="load" hx-swap="innerHTML">
+ *   - hx-headers injecte le JWT une seule fois sur le conteneur ; form et boutons delete l'héritent
+ *   - username et userImage passés en query param pour que Go puisse rendre le formulaire
+ *     et les boutons delete de façon conditionnelle
+ *
+ * L'utilisateur ne voit aucune différence visuelle.
+ */
+import { useEffect, useRef, useState } from 'preact/hooks';
 import snarkdown from 'snarkdown';
 
 import { ArticleMeta } from '../components/ArticleMeta';
-import { ArticleCommentCard } from '../components/ArticleCommentCard';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { apiGetArticle } from '../services/api/article';
-import { apiCreateComment, apiGetComments } from '../services/api/comments';
 import { useStore } from '../store';
-import { DEFAULT_AVATAR } from '../utils/constants';
 
 interface ArticlePageProps {
 	params: {
@@ -17,26 +35,37 @@ interface ArticlePageProps {
 
 export default function ArticlePage(props: ArticlePageProps) {
 	const [article, setArticle] = useState<Article | undefined>(undefined);
-	const [comments, setComments] = useState<ArticleComment[]>([]);
-	const [commentBody, setCommentBody] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const user = useStore(state => state.user);
-
-	const postComment = async (e: Event) => {
-		e.preventDefault();
-		const comment: ArticleComment = await apiCreateComment(props.params.slug, commentBody);
-		setCommentBody('');
-		setComments(prevComments => [comment, ...prevComments]);
-	};
+	const commentsRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		(async function () {
 			setIsLoading(true);
 			setArticle(await apiGetArticle(props.params.slug));
-			setComments(await apiGetComments(props.params.slug));
 			setIsLoading(false);
 		})();
 	}, [props.params.slug]);
+
+	// Même pattern que Home.tsx : HTMX ne scanne pas les éléments ajoutés
+	// par le routeur SPA. htmx.process() sur le conteneur #comments déclenche
+	// le hx-trigger="load" après une navigation SPA vers cette page.
+	useEffect(() => {
+		if (commentsRef.current) window.htmx.process(commentsRef.current);
+	}, [article]);
+
+	const token = user?.token ?? '';
+	const username = user?.username ?? '';
+	const userImage = user?.image ?? '';
+
+	// hx-headers expose le JWT au fragment et à tous ses enfants HTMX (form, delete).
+	// hx-swap="innerHTML" : le div#comments reste dans le DOM (et conserve hx-headers),
+	// seul son contenu est remplacé à chaque requête Go.
+	const commentsUrl = `/hda/articles/${encodeURIComponent(props.params.slug)}/comments`
+		+ `?username=${encodeURIComponent(username)}`
+		+ `&userImage=${encodeURIComponent(userImage)}`;
+
+	const hxHeaders = token ? JSON.stringify({ Authorization: `Token ${token}` }) : '{}';
 
 	return !article ? (
 		<LoadingIndicator show={isLoading} style={{ margin: '1rem auto', display: 'flex' }} width="2em" />
@@ -62,30 +91,19 @@ export default function ArticlePage(props: ArticlePageProps) {
 
 				<div class="row">
 					<div class="col-xs-12 col-md-8 offset-md-2">
-						<form class="card comment-form" onSubmit={postComment}>
-							<div class="card-block">
-								<textarea
-									value={commentBody}
-									class="form-control"
-									placeholder="Write a comment..."
-									rows={3}
-									onInput={e => setCommentBody(e.currentTarget.value)}
-								/>
-							</div>
-							<div class="card-footer">
-								<img src={user?.image || DEFAULT_AVATAR} class="comment-author-img" />
-								<button class="btn btn-sm btn-primary">Post Comment</button>
-							</div>
-						</form>
-
-						{comments.map(comment => (
-							<ArticleCommentCard
-								key={comment.id}
-								articleSlug={props.params.slug}
-								comment={comment}
-								onDelete={() => setComments(prevState => prevState.filter(c => c.id !== comment.id))}
-							/>
-						))}
+						{/*
+						 * Point de montage HTMX — step-04.
+						 * hx-swap="innerHTML" : ce div reste dans le DOM avec ses hx-headers.
+						 * Tous les éléments HTMX rendus par Go à l'intérieur héritent du JWT.
+						 */}
+						<div
+							id="comments"
+							ref={commentsRef}
+							hx-get={commentsUrl}
+							hx-trigger="load"
+							hx-swap="innerHTML"
+							hx-headers={hxHeaders}
+						/>
 					</div>
 				</div>
 			</div>

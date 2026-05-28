@@ -1,0 +1,80 @@
+package templates
+
+import (
+	"conduit-hda/internal/api"
+	"fmt"
+	"net/url"
+	"strconv"
+)
+
+// CommentsFeed est le fragment HTML de la section commentaires d'un article.
+// Il remplace la partie commentaires d'Article.tsx côté serveur.
+//
+// Nouveau concept par rapport aux steps précédents :
+//   - hx-post  : soumettre un nouveau commentaire (Write via HTMX)
+//   - hx-delete : supprimer un commentaire (Write via HTMX)
+//   - hx-headers hérité : le JWT injecté par Preact sur le div#comments parent
+//     est automatiquement transmis à tous les enfants HTMX (form, bouton delete).
+//
+// username et userImage sont passés en hidden fields pour que les handlers
+// POST/DELETE puissent re-rendre le fragment avec les bons paramètres.
+templ CommentsFeed(comments []api.Comment, slug string, username string, userImage string) {
+	if username != "" {
+		<form
+			hx-post={ fmt.Sprintf("/hda/articles/%s/comments", url.PathEscape(slug)) }
+			hx-target="#comments"
+			hx-swap="innerHTML"
+			class="card comment-form"
+		>
+			<input type="hidden" name="username" value={ username }/>
+			<input type="hidden" name="userImage" value={ userImage }/>
+			<div class="card-block">
+				<textarea
+					name="body"
+					class="form-control"
+					placeholder="Write a comment..."
+					rows="3"
+				></textarea>
+			</div>
+			<div class="card-footer">
+				<img src={ avatarURL(userImage) } class="comment-author-img" alt="Your avatar"/>
+				<button class="btn btn-sm btn-primary" type="submit">Post Comment</button>
+			</div>
+		</form>
+	}
+	for _, comment := range comments {
+		@commentCard(comment, slug, username)
+	}
+}
+
+// commentCard rend une carte commentaire avec bouton de suppression conditionnel.
+templ commentCard(comment api.Comment, slug string, currentUsername string) {
+	<div class="card">
+		<div class="card-block">
+			<p class="card-text">{ comment.Body }</p>
+		</div>
+		<div class="card-footer">
+			<a href={ templ.SafeURL(fmt.Sprintf("/@%s", comment.Author.Username)) } class="comment-author">
+				<img src={ avatarURL(comment.Author.Image) } class="comment-author-img" alt="Author avatar"/>
+			</a>
+			{ " " }
+			<a href={ templ.SafeURL(fmt.Sprintf("/@%s", comment.Author.Username)) } class="comment-author">
+				{ comment.Author.Username }
+			</a>
+			<span class="date-posted">{ formatDate(comment.CreatedAt) }</span>
+			if currentUsername == comment.Author.Username {
+				<span class="mod-options">
+					<i
+						class="ion-trash-a"
+						hx-delete={ fmt.Sprintf("/hda/articles/%s/comments/%s", url.PathEscape(slug), strconv.Itoa(comment.ID)) }
+						hx-target="#comments"
+						hx-swap="innerHTML"
+						hx-vals={ fmt.Sprintf(`{"username":"%s","userImage":""}`, currentUsername) }
+						hx-confirm="Delete this comment?"
+						style="cursor:pointer"
+					></i>
+				</span>
+			}
+		</div>
+	</div>
+}

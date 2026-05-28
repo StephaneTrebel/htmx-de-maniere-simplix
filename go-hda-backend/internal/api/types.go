@@ -34,3 +34,21 @@ type ArticlesResponse struct {
 	Articles      []Article `json:"articles"`
 	ArticlesCount int       `json:"articlesCount"`
 }
+
+// Comment représente un commentaire sur un article.
+type Comment struct {
+	ID        int    `json:"id"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"createdAt"`
+	Author    Author `json:"author"`
+}
+
+// CommentsResponse est la réponse de l'endpoint GET /articles/:slug/comments.
+type CommentsResponse struct {
+	Comments []Comment `json:"comments"`
+}
+
+// CommentResponse est la réponse de l'endpoint POST /articles/:slug/comments.
+type CommentResponse struct {
+	Comment Comment `json:"comment"`
+}

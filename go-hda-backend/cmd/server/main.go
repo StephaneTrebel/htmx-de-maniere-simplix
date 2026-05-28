@@ -30,6 +30,11 @@ func main() {
 	// step-03 : articles d'un profil (My Articles + Favorited Articles + Pagination)
 	e.GET("/hda/profile/articles", handlers.ProfileArticlesHandler)
 
+	// step-04 : commentaires d'un article (lecture + ajout + suppression)
+	e.GET("/hda/articles/:slug/comments", handlers.CommentsHandler)
+	e.POST("/hda/articles/:slug/comments", handlers.CreateCommentHandler)
+	e.DELETE("/hda/articles/:slug/comments/:id", handlers.DeleteCommentHandler)
+
 	// Port
 	port := os.Getenv("PORT")
 	if port == "" {

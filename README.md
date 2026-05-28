@@ -57,6 +57,7 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 | `step-01-go-hda-proxy` | **PopularTags** (sidebar des tags populaires) | Premier fragment HTML servi par Go ; infrastructure Traefik ; communication SPA ↔ HTMX via événement DOM |
 | `step-02-article-feed` | **ArticleFeed** (fil d'articles + tabs + pagination) | Fragment paramétré et auto-rafraîchissant ; navigation sans JS ; pont événement DOM → `htmx.ajax()` |
 | `step-03-profile` | **ProfileArticlesFeed** (articles d'un profil + tabs + pagination) | Fragment paramétré par un identifiant de route Preact ; routeur SPA → `htmx.ajax()` ; réutilisation de template Go entre pages |
+| `step-04-comments` | **CommentsFeed** (commentaires d'un article : liste + ajout + suppression) | Premières **opérations d'écriture** (`hx-post`, `hx-delete`) ; propagation du JWT via `hx-headers` hérité ; `innerHTML` pour conserver le conteneur JWT dans le DOM |
 
 ---
 
@@ -285,6 +286,61 @@ Pour vérifier la migration : onglet **Réseau** → naviguez vers un profil →
 
 ---
 
+### `step-04-comments` — commentaires migrés vers Go + HTMX
+
+```bash
+git checkout step-04-comments
+```
+
+#### Ce qui a changé par rapport à step-03
+
+| | step-03-profile | step-04-comments |
+|---|---|---|
+| Commentaires (liste) | Rendu Preact (`{comments.map(...)}`) | Fragment HTML Go |
+| Formulaire ajout | Preact (`onSubmit → apiCreateComment`) | `hx-post` Go |
+| Bouton supprimer | Preact (`onClick → apiDeleteComment`) | `hx-delete` Go |
+| States dans Article.tsx | 4 (article, comments, commentBody, isLoading) | 2 (article, isLoading) |
+| JWT transmis à Go | — | `hx-headers` injecté par Preact, hérité par form et boutons |
+| Verbes HTTP HTMX | GET uniquement | GET + POST + DELETE |
+| Routes Go ajoutées | — | `GET/POST /hda/articles/:slug/comments` + `DELETE /hda/articles/:slug/comments/:id` |
+
+#### Nouveau concept : écriture via HTMX + propagation du JWT
+
+Les trois steps précédents n'utilisaient que `hx-get`. Ce step introduit les mutations.
+
+Le JWT vit dans le store Zustand de Preact. Il est injecté **une seule fois** sur le div conteneur via `hx-headers`. Tous les éléments Go à l'intérieur — le formulaire `hx-post`, les boutons `hx-delete` — l'héritent automatiquement.
+
+La clé : `hx-swap="innerHTML"` au lieu de `outerHTML`. Avec `outerHTML`, le div disparaît à chaque réponse et emporte ses `hx-headers` avec lui. Avec `innerHTML`, il reste en place.
+
+```mermaid
+flowchart TD
+    A["🌐 Navigation vers /article/slug"]
+    B["Article.tsx — fetch article\nhtmx.process(commentsRef)"]
+    C["🐹 Go → CommentsFeed\nformulaire + liste\n(innerHTML de #comments)"]
+    D["📝 Submit formulaire\nhx-post → JWT hérité"]
+    E["🐹 Go → CreateComment\n→ GetComments → CommentsFeed"]
+    F["🗑️ Clic supprimer\nhx-delete → JWT hérité"]
+    G["🐹 Go → DeleteComment\n→ GetComments → CommentsFeed"]
+
+    A --> B --> C
+    C --> D --> E
+    C --> F --> G
+```
+
+#### Mode stack complète (Docker + Traefik) — recommandé
+
+```bash
+cd reverse-proxy
+cp .env.example .env
+docker compose up --build
+```
+
+Ouvrir : **http://localhost:1337** puis cliquer sur un article.
+
+Pour vérifier la migration : onglet **Réseau** → ouvrez un article → vous verrez `GET /hda/articles/:slug/comments`. Postez un commentaire (connecté) → requête `POST /hda/articles/:slug/comments` avec l'header `Authorization: Token ...`. La liste se met à jour sans rechargement de page.
+
+---
+
 ## Commandes utiles
 
 ### Backend Go (`go-hda-backend/`)
@@ -318,7 +374,8 @@ npm run build   # build de production dans dist/
 │   │   │   └── PopularTags.tsx     #   ← point de montage HTMX (step-01)
 │   │   ├── pages/
 │   │   │   ├── Home.tsx            #   pont conduit:tag → htmx.ajax() (step-02)
-│   │   │   └── Profile.tsx         #   pont routeur → htmx.ajax() (step-03)
+│   │   │   ├── Profile.tsx         #   pont routeur → htmx.ajax() (step-03)
+│   │   │   └── Article.tsx         #   hx-headers JWT + point de montage comments (step-04)
 │   │   └── types/
 │   │       └── global.d.ts         #   types hx-*, window.htmx (step-01+)
 │   └── Dockerfile                  #   build WMR + serve statique
@@ -329,20 +386,24 @@ npm run build   # build de production dans dist/
 │   └── internal/
 │       ├── api/                    #   client HTTP vers api.realworld.show
 │       │   ├── client.go
-│       │   ├── types.go            #   TagsResponse, Article, Author, ArticlesResponse
+│       │   ├── types.go            #   TagsResponse, Article, Author, Comment, ...
 │       │   ├── tags.go             #   GetTags()
-│       │   └── articles.go         #   GetArticles + GetProfileArticles (step-02/03)
+│       │   ├── articles.go         #   GetArticles + GetProfileArticles (step-02/03)
+│       │   └── comments.go         #   GetComments, CreateComment, DeleteComment (step-04)
 │       ├── handlers/
 │       │   ├── tags.go             #   GET /hda/tags → fragment HTML
 │       │   ├── articles.go         #   GET /hda/articles → fragment HTML (step-02)
-│       │   └── profile_articles.go #   GET /hda/profile/articles → fragment HTML (step-03)
+│       │   ├── profile_articles.go #   GET /hda/profile/articles → fragment HTML (step-03)
+│       │   └── comments.go         #   GET/POST/DELETE /hda/articles/:slug/comments (step-04)
 │       └── templates/
 │           ├── tags.templ          #   template du fragment PopularTags
 │           ├── tags_templ.go       #   généré par templ generate
 │           ├── articles.templ      #   template ArticleFeed + articleCard partagé (step-02)
 │           ├── articles_templ.go   #   généré par templ generate
 │           ├── profile_articles.templ     #   template ProfileArticlesFeed (step-03)
-│           └── profile_articles_templ.go  #   généré par templ generate
+│           ├── profile_articles_templ.go  #   généré par templ generate
+│           ├── comments.templ      #   template CommentsFeed + commentCard (step-04)
+│           └── comments_templ.go   #   généré par templ generate
 ├── reverse-proxy/                  # Traefik — URL unique localhost:1337
 │   ├── docker-compose.yml          #   Traefik + Go HDA + SPA, routing PathPrefix
 │   ├── .env.example

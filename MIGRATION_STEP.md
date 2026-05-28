@@ -1,202 +1,181 @@
-# MIGRATION_STEP.md — step-03-profile
+# MIGRATION_STEP.md — step-04-comments
 
 ## Nom de la branche
 
-`step-03-profile`
+`step-04-comments`
 
 ---
 
 ## Objectif du step
 
-Migrer la liste d'articles de la **page Profile** vers un fragment HTML servi par le backend Go :
-**ProfileArticlesFeed** — onglets "My Articles" / "Favorited Articles" + liste + pagination.
+Migrer la **section commentaires** de la page article (`/article/:slug`) vers un fragment HTML
+servi par le backend Go : formulaire d'ajout, liste de commentaires, bouton de suppression.
 
-Ce step introduit un nouveau pattern par rapport à step-02 : le fragment est paramétré par un **identifiant de ressource issu du routeur Preact** (le `username` et le type d'onglet déduit de l'URL). `Profile.tsx` sert de pont entre le routeur SPA et le fragment Go — il traduit les params de route en query params HTMX au moment du montage et à chaque changement d'URL.
+Ce step introduit les **opérations d'écriture via HTMX** (`hx-post`, `hx-delete`) — les trois
+steps précédents n'utilisaient que `hx-get`. Il introduit également la **propagation du JWT**
+depuis la SPA Preact vers le backend Go via `hx-headers` hérité.
 
-Le **header de profil** (avatar, bio, bouton Follow/Unfollow) reste intentionnellement en Preact : il nécessite l'état d'authentification et des mutations API. Il sera l'objet d'un step ultérieur dédié à l'authentification côté serveur.
+Le corps de l'article et les métadonnées (`ArticleMeta`) restent intentionnellement en Preact :
+ils nécessitent un rendu Markdown et des interactions (favorite, follow) liées à l'authentification.
 
 ---
 
-## Différence avec step-02
+## Différence avec step-03
 
-| | step-02-article-feed | step-03-profile |
+| | step-03-profile | step-04-comments |
 |---|---|---|
-| ArticleFeed (Home) | Fragment HTML Go | Fragment HTML Go (inchangé) |
-| PopularTags (Home) | Fragment HTML Go | Fragment HTML Go (inchangé) |
-| Articles de profil | Rendu Preact (useEffect + apiGetArticles) | Fragment HTML Go |
-| Onglets profil (My Articles / Favorited) | Gérés par l'URL Preact-ISO + état | Rendus dans le fragment Go |
-| Pagination profil | Composant Preact `<Pagination>` | Rendue dans le fragment Go |
-| States dans Profile.tsx | 5 (user, articles, articlesCount, page, isLoading) | 1 (user — pour le header) |
-| `useEffect` fetchArticles | Présent (appel API JSON) | Supprimé |
-| Routeur Preact → Fragment Go | — | `useEffect([url, username])` → `htmx.ajax()` |
-| Route Go ajoutée | — | `GET /hda/profile/articles?username&type&page` |
-| Concept HTMX introduit | Fragment paramétré par état interne | Fragment paramétré par route externe |
+| Commentaires (liste) | Rendu Preact (`{comments.map(...)}`) | Fragment HTML Go |
+| Formulaire ajout commentaire | Preact (`onSubmit → apiCreateComment`) | `hx-post` Go |
+| Bouton supprimer | Preact (`onClick → apiDeleteComment`) | `hx-delete` Go |
+| States dans Article.tsx | 4 (article, comments, commentBody, isLoading) | 2 (article, isLoading) |
+| JWT dans HTMX | — | `hx-headers` injecté par Preact, hérité par enfants Go |
+| Verbes HTTP HTMX | GET uniquement | GET + POST + DELETE |
+| `hx-swap` | `outerHTML` | **`innerHTML`** (le div parent reste pour conserver `hx-headers`) |
 
 ---
 
-## Dossiers et fichiers modifiés / créés
-
-### Créés
+## Nouveau concept : `hx-headers` hérité + `innerHTML`
 
 ```
-go-hda-backend/
-└── internal/
-    ├── api/
-    │   └── articles.go              ← ajout de GetProfileArticles(page, username, type)
-    ├── handlers/
-    │   └── profile_articles.go      ← ProfileArticlesHandler
-    └── templates/
-        ├── profile_articles.templ   ← template du fragment ProfileArticlesFeed
-        └── profile_articles_templ.go ← généré par templ generate
+Article.tsx (Preact)
+│
+└── <div id="comments"
+         hx-get="/hda/articles/{slug}/comments?username=...&userImage=..."
+         hx-trigger="load"
+         hx-swap="innerHTML"          ← innerHTML : le div reste dans le DOM
+         hx-headers='{"Authorization":"Token xxx"}'>   ← JWT injecté par Preact
+
+         │  Go rend à l'intérieur — hérite automatiquement de hx-headers
+         │
+         ├── <form hx-post="/hda/articles/{slug}/comments"
+         │         hx-target="#comments" hx-swap="innerHTML">
+         │     <input type="hidden" name="username" value="..."/>
+         │     <input type="hidden" name="userImage" value="..."/>
+         │     <textarea name="body"/>
+         │   </form>
+         │
+         └── <div class="card">
+               <i hx-delete="/hda/articles/{slug}/comments/42"
+                  hx-target="#comments" hx-swap="innerHTML"
+                  hx-vals='{"username":"..."}'>
+             </div>
 ```
 
-### Modifiés
+**Pourquoi `innerHTML` et non `outerHTML` ?**
 
-#### `go-hda-backend/internal/api/articles.go` — ajout de GetProfileArticles
+Avec `outerHTML`, le `div#comments` est remplacé à chaque requête — ses `hx-headers` disparaissent
+du DOM. Les enfants Go perdent le JWT. Avec `innerHTML`, le div parent reste en place et ses attributs
+HTMX sont hérités par tous les éléments enfants, y compris ceux rendus par Go.
 
-```diff
-+// GetProfileArticles retourne une page d'articles d'un profil.
-+// articleType : "author" (articles écrits) ou "favorited" (articles favoris).
-+func (c *Client) GetProfileArticles(page int, username, articleType string) ([]Article, int, error) {
-+	offset := (page - 1) * ArticlePageLimit
-+	path := fmt.Sprintf("/articles?limit=%d&offset=%d&%s=%s",
-+		ArticlePageLimit, offset, articleType, url.QueryEscape(username))
-+	var resp ArticlesResponse
-+	if err := c.do("GET", path, nil, &resp); err != nil {
-+		return nil, 0, err
-+	}
-+	return resp.Articles, resp.ArticlesCount, nil
-+}
-```
+---
 
-#### `go-hda-backend/cmd/server/main.go` — enregistrement de la route
+## Routes Go ajoutées
 
-```diff
- // step-02 : fil d'articles (Global Feed + Tag Feed + Pagination)
- e.GET("/hda/articles", handlers.ArticlesHandler)
-+
-+// step-03 : articles d'un profil (My Articles + Favorited Articles + Pagination)
-+e.GET("/hda/profile/articles", handlers.ProfileArticlesHandler)
-```
+| Verbe | Route | Handler |
+|---|---|---|
+| GET | `/hda/articles/:slug/comments` | `CommentsHandler` |
+| POST | `/hda/articles/:slug/comments` | `CreateCommentHandler` |
+| DELETE | `/hda/articles/:slug/comments/:id` | `DeleteCommentHandler` |
 
-#### `public/pages/Profile.tsx` — simplification
+---
+
+## Propagation du username après POST/DELETE
+
+Go doit connaître l'utilisateur connecté pour :
+1. Afficher le formulaire (si authentifié)
+2. Afficher le bouton supprimer (si auteur du commentaire)
+
+Le JWT ne peut pas être décodé côté Go sans bibliothèque JWT. Solution simple :
+
+- Chargement initial : `username` et `userImage` passés en **query params**
+- POST : `username` et `userImage` en **hidden fields** dans le formulaire
+- DELETE : `username` via **`hx-vals`** sur le bouton
+
+Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` avec les bons paramètres.
+
+---
+
+## Diff Preact — Article.tsx
 
 ```diff
 -import { useEffect, useState } from 'preact/hooks';
-+import { useEffect, useState } from 'preact/hooks';
- import { useLocation } from 'preact-iso';
++import { useEffect, useRef, useState } from 'preact/hooks';
 
--import { ArticlePreview } from '../components/ArticlePreview';
- import { Link } from '../components/Link';
--import { LoadingIndicator } from '../components/LoadingIndicator';
--import { Pagination } from '../components/Pagination';
--import { apiGetArticles } from '../services/api/article';
- import { apiFollowProfile, apiUnfollowProfile, apiGetProfile } from '../services/api/profile';
+-import { ArticleCommentCard } from '../components/ArticleCommentCard';
+-import { apiCreateComment, apiGetComments } from '../services/api/comments';
 
- export default function ProfilePage(props: ProfileProps) {
- 	const username = props.params.username.replace(/^@/, '') || '';
- 	const { url } = useLocation();
- 	const [user, setUser] = useState({} as Profile);
--	const [articles, setArticles] = useState<Article[]>([]);
--	const [articlesCount, setArticlesCount] = useState(0);
--	const [page, setPage] = useState(1);
--	const [isLoading, setIsLoading] = useState(false);
+ export default function ArticlePage(props) {
+   const [article, setArticle] = useState(undefined);
+-  const [comments, setComments] = useState([]);
+-  const [commentBody, setCommentBody] = useState('');
+   const [isLoading, setIsLoading] = useState(false);
++  const commentsRef = useRef(null);
+   const user = useStore(state => state.user);
 
--	useEffect(() => {
--		(async function fetchArticles() {
--			setIsLoading(true);
--			const { articles, articlesCount } = await apiGetArticles(page, {
--				[/.*\/favorites/g.test(url) ? 'favorited' : 'author']: username
--			});
--			setArticles(articles);
--			setArticlesCount(articlesCount);
--			setIsLoading(false);
--		})();
--	}, [url, page, username]);
+-  const postComment = async (e) => {
+-    e.preventDefault();
+-    const comment = await apiCreateComment(slug, commentBody);
+-    setCommentBody('');
+-    setComments(prev => [comment, ...prev]);
+-  };
 
-+	// Pont routeur Preact → fragment Go
-+	useEffect(() => {
-+		const type = /.*\/favorites/.test(url) ? 'favorited' : 'author';
-+		window.htmx.ajax(
-+			'GET',
-+			`/hda/profile/articles?username=${encodeURIComponent(username)}&type=${type}&page=1`,
-+			{ target: '#profile-articles', swap: 'outerHTML' }
-+		);
-+	}, [url, username]);
+   useEffect(() => {
+-    setComments(await apiGetComments(slug));
++    if (commentsRef.current) window.htmx.process(commentsRef.current);
+-  }, [slug]);
++  }, [article]);
 
- 	// ...
++  // Point de montage HTMX — step-04
++  <div
++    id="comments"
++    ref={commentsRef}
++    hx-get={commentsUrl}
++    hx-trigger="load"
++    hx-swap="innerHTML"
++    hx-headers={hxHeaders}
++  />
 
--					{isLoading ? (
--						<LoadingIndicator ... />
--					) : articles.length > 0 ? (
--						articles.map(article => <ArticlePreview key={article.slug} article={article} />)
--					) : (
--						<div class="article-preview">No articles are here... yet.</div>
--					)}
--					<Pagination count={articlesCount} page={page} setPage={setPage} />
-+					<div id="profile-articles" />
+-  // Formulaire Preact + {comments.map(comment => <ArticleCommentCard ... />)}
 ```
+
+---
+
+## Fichiers modifiés / créés
+
+| Fichier | Action |
+|---|---|
+| `go-hda-backend/internal/api/types.go` | ajout `Comment`, `CommentsResponse`, `CommentResponse` |
+| `go-hda-backend/internal/api/comments.go` | créé — `GetComments`, `CreateComment`, `DeleteComment` |
+| `go-hda-backend/internal/handlers/comments.go` | créé — 3 handlers GET/POST/DELETE |
+| `go-hda-backend/internal/templates/comments.templ` | créé — `CommentsFeed`, `commentCard` |
+| `go-hda-backend/internal/templates/comments_templ.go` | généré par `make templ` |
+| `go-hda-backend/cmd/server/main.go` | 3 nouvelles routes |
+| `preact-realworld-example-app/public/pages/Article.tsx` | states 4→2, point de montage HTMX |
 
 ### Non modifiés
 
-- `go-hda-backend/internal/templates/articles.templ` — `articleCard` est réutilisé tel quel (même package Go)
-- Header de `Profile.tsx` — avatar, bio, Follow/Unfollow restent Preact
-- `presentation/` (règle absolue)
+- `go-hda-backend/internal/templates/articles.templ` — `articleCard` et `formatDate` réutilisés
+- Corps de l'article et `ArticleMeta` — restent en Preact
+- `presentation/` (règle absolue — jamais modifié dans une branche step-*)
 
 ---
 
-## Fragment HTML généré par Go
-
-```go
-// internal/templates/profile_articles.templ
-templ ProfileArticlesFeed(articles []api.Article, username, articleType string, page, totalPages int) {
-    <div id="profile-articles">
-        <div class="articles-toggle">
-            <ul class="nav nav-pills outline-active">
-                <li class="nav-item">
-                    <a class="nav-link [active si author]"
-                       hx-get="/hda/profile/articles?username=...&type=author&page=1"
-                       hx-target="#profile-articles" hx-swap="outerHTML">My Articles</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link [active si favorited]"
-                       hx-get="/hda/profile/articles?username=...&type=favorited&page=1"
-                       hx-target="#profile-articles" hx-swap="outerHTML">Favorited Articles</a>
-                </li>
-            </ul>
-        </div>
-        // articles (réutilise articleCard de articles.templ, même package Go)
-        // pagination
-    </div>
-}
-```
-
-`articleCard` est défini dans `articles.templ` (privé, même package `templates`) et réutilisé directement dans `profile_articles.templ` sans duplication ni export.
-
----
-
-## Architecture de communication après step-03
+## Architecture de communication après step-04
 
 ```mermaid
 flowchart TD
-    A["🌐 Navigation vers /@username\nou /@username/favorites"]
-    B["Profile.tsx — useEffect url+username\ndéduit type depuis l'URL\nhtmx.ajax('/hda/profile/articles?username=...&type=...')"]
-    C["🐹 Go → ProfileArticlesFeed\ntabs + articles + pagination\n(id='profile-articles')"]
-    D["🖱️ Clic onglet dans le fragment\nhx-get='...type=author|favorited'\nhx-target='#profile-articles'"]
-    E["🐹 Go → ProfileArticlesFeed (nouveau type)"]
-    F["🖱️ Clic pagination\nhx-get='...page=N'\nhx-target='#profile-articles'"]
-    G["🐹 Go → ProfileArticlesFeed (page N)"]
+    A["🌐 Navigation vers /article/slug"]
+    B["Article.tsx — useEffect article\nfetch article + htmx.process(commentsRef)"]
+    C["🐹 Go → CommentsFeed\nformulaire + liste commentaires\n(innerHTML de #comments)"]
+    D["📝 Saisie + submit formulaire\nhx-post='/hda/.../comments'\nJWT hérité de #comments"]
+    E["🐹 Go → CreateComment → GetComments\nCommentsFeed mis à jour"]
+    F["🗑️ Clic bouton supprimer\nhx-delete='/hda/.../comments/42'\nJWT hérité de #comments"]
+    G["🐹 Go → DeleteComment → GetComments\nCommentsFeed mis à jour"]
 
     A --> B --> C
     C --> D --> E
     C --> F --> G
 ```
-
-**Pourquoi `htmx.ajax()` plutôt que `hx-trigger="load"` ?**
-
-`Profile.tsx` doit réagir à deux déclencheurs : le montage initial ET les changements d'URL (`/@username` ↔ `/@username/favorites`). Un `useEffect([url, username])` avec `htmx.ajax()` couvre les deux cas en une seule déclaration.
-
-De plus, le type d'onglet initial dépend de l'URL Preact — cette logique doit rester en JavaScript. Le `useEffect` est le bon endroit pour traduire cette information en query param HTMX avant de déléguer au fragment Go.
 
 ---
 
@@ -233,14 +212,10 @@ cd go-hda-backend && go build ./... && go vet ./...
 # Génération templ
 cd go-hda-backend && make templ
 
-# Build SPA
-cd preact-realworld-example-app && npm run build
-
 # Tester les fragments manuellement (backend Go lancé)
 curl http://localhost:3000/hda/tags
 curl "http://localhost:3000/hda/articles?tab=global&page=1"
-curl "http://localhost:3000/hda/profile/articles?username=<un_username>&type=author&page=1"
-curl "http://localhost:3000/hda/profile/articles?username=<un_username>&type=favorited&page=1"
+curl "http://localhost:3000/hda/articles/slug/comments"
 
 # Vérifier que presentation/ n'est pas touché
 git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo "OK"
@@ -250,18 +225,23 @@ git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo 
 
 ## Point narratif pour la démo
 
-> *"On vient de faire la Home. Maintenant regardons une page différente : le profil d'un utilisateur. C'est la même mécanique — un fragment Go auto-rafraîchissant — mais avec une nouveauté : le fragment ne sait pas quel utilisateur afficher tout seul. C'est Preact qui le lui dit.*
+> *"Jusqu'ici on a fait que du GET — lire des données. Maintenant on passe à l'écriture.
+> Sur la page article, la section commentaires : poster un commentaire, supprimer le sien.*
 >
-> *Regardez Profile.tsx : il n'y a plus qu'un état, `user`, pour le header. Toute la logique articles est partie. À la place, un `useEffect` qui dit à HTMX : 'charge les articles de cet utilisateur, onglet auteur ou favoris selon l'URL'. Le fragment Go reçoit ces paramètres et se débrouille pour le reste — onglets, pagination, contenu.*
+> *Le défi : les opérations d'écriture nécessitent le JWT de l'utilisateur. Mais ce JWT
+> vit dans le store Zustand de Preact. Comment le transmettre à HTMX sans le stocker
+> dans un cookie ou le réécrire dans Go ?*
 >
-> *Ce qui reste en Preact, c'est intentionnel : le bouton Follow/Unfollow et le lien Edit Profile nécessitent de savoir qui est connecté. Ce sera l'objet d'un prochain step."*
+> *La réponse : `hx-headers` + `innerHTML`. Preact injecte le JWT une seule fois sur le
+> div conteneur. Comme on utilise `innerHTML` au lieu de `outerHTML`, ce div reste dans
+> le DOM. Tous les éléments Go à l'intérieur — le formulaire, les boutons supprimer —
+> héritent automatiquement du header Authorization. Zero duplication, zero cookie."*
 
 ---
 
-## Limites connues et ce qui reste côté SPA
+## Limites connues
 
-- **Header de profil** (Follow/Unfollow, Edit Settings) reste en Preact — nécessite auth.
 - **Bouton favorite (❤)** dans les cartes d'articles reste non fonctionnel (hérité de step-02).
 - **"Your Feed"** sur Home reste hors périmètre.
-- `Profile.tsx` conserve un appel API JSON (`apiGetProfile`) pour alimenter le header.
+- `Article.tsx` conserve l'appel API JSON (`apiGetArticle`) et le rendu Markdown.
 - Aucun test automatisé pour le backend Go.
