@@ -1,189 +1,390 @@
-//@ < TBD
-
 ## .[chapter]
 
 # De JSON à HTML, sans big bang
 
 /*
-Chapitre 2.
-L'idée centrale: on ne jette pas Preact pour repartir de zéro.
-On étrangle progressivement certaines branches de l'application en introduisant un backend Go qui sait rendre du HTML.
-Le système doit rester utilisable pendant la migration.
+On a vu la SPA de départ — propre, fonctionnelle, 6 states dans Home.tsx.
+Ce chapitre raconte comment on l'a migrée, composant par composant, sans jamais casser l'application.
+L'utilisateur n'a rien vu. Le code a changé. Voilà comment.
 */
 
-## La cible
+## La stratégie : Strangler Fig
+
+```mermaid
+graph LR
+    subgraph avant["Avant"]
+        P1["⚛️ Preact<br/>tout"]
+    end
+    subgraph apres["Après chaque step"]
+        P2["⚛️ Preact<br/>shell"]
+        G["🐹 Go<br/>fragment"]
+        P2 -- "cohabite" --> G
+    end
+```
+
+- Identifier une **zone de l'UI**
+- Poser une **frontière HTTP claire**
+- Remplacer **un composant**, pas l'application
+- L'utilisateur ne voit **aucune différence**
+
+/*
+Le Strangler Fig (figuier étrangleur) : une plante qui pousse autour d'un arbre existant jusqu'à le remplacer complètement.
+On n'arrête pas l'application pour la réécrire. On choisit une zone, on la remplace, on recommence.
+À chaque step : l'application tourne, les tests passent, l'utilisateur ne voit rien.
+*/
+
+## L'infrastructure : une seule URL
+
+```mermaid
+flowchart LR
+    Browser["🌐 Navigateur"]
+    Traefik["⚙️ Traefik<br/>(localhost:1337)"]
+    Go["🐹 Go + templ<br/>(port 3000)"]
+    SPA["⚛️ SPA Preact<br/>(port 8080)"]
+
+    Browser -->|"HTTP"| Traefik
+    Traefik -->|"/hda/*  priority=10"| Go
+    Traefik -->|"/*      priority=1"| SPA
+```
+
+Un seul point d'entrée. Deux backends. L'utilisateur ne voit pas la frontière.
+
+/*
+Traefik route par PathPrefix : /hda/* va vers Go, tout le reste vers la SPA.
+Les deux routes matchent /hda/tags — la priorité explicite (10 vs 1) lève l'ambiguïté sans dépendre du comportement implicite de Traefik.
+Pas de changement d'URL, pas d'entrée /etc/hosts, pas de CORS. La fondation invisible de toute la migration.
+*/
+
+## Résultat dans le navigateur
 
 ```text
-Preact shell
-  + Go backend-for-front
-  + fragments HTML
-  + WebComponents SSR
-  + HTMX pour les échanges
+← GET /              200  text/html     ← SPA Preact (shell)
+← GET /hda/tags      200  text/html     ← Go (fragment)
+← GET /hda/articles  200  text/html     ← Go (fragment)
+```
+
+Fini le JSON pour ces zones.</br>Le serveur répond avec **du HTML prêt à afficher**.
+
+/*
+Montrer l'onglet Réseau après step-01.
+Contraste immédiat avec ce qu'on venait de voir : /api/* retournait du JSON, /hda/* retourne du HTML.
+Le navigateur ne fait plus de transformation — il reçoit le rendu final et le colle dans le DOM.
+*/
+
+---
+
+## Step-01 — PopularTags : le premier fragment
+
+**Avant** — Preact gère le fetch, le loading, et passe un callback au parent :
+
+```diff
+- export function PopularTags({ onClick }) {
+-   const [tags, setTags] = useState<string[]>([]);
+-   const [loading, setLoading] = useState(false);
+-   useEffect(() => { /* fetch JSON… */ }, []);
+-   return <div class="sidebar">…{tags.map(tag => (
+-     <a onClick={() => onClick(tag)}>{tag}</a>
+-   ))}</div>;
+- }
+```
+
+**Après** — un point de montage de 3 lignes :
+
+```diff
++ export function PopularTags() {
++   return (
++     <div hx-get="/hda/tags" hx-trigger="load" hx-swap="outerHTML" />
++   );
++ }
 ```
 
 /*
-Expliquer le terme "backend-for-front" dans notre contexte: un backend orienté interface web, qui parle au navigateur en HTML quand c'est utile.
-Go rend les fragments et les WebComponents côté serveur.
-Le navigateur reçoit du HTML déjà exploitable, puis HTMX prend en charge les requêtes AJAX déclaratives et les remplacements ciblés.
-Preact peut continuer à exister autour ou à côté de ces zones.
+Diff le plus simple de toute la migration.
+Toute la logique (fetch, state, loading, callback) disparaît côté client — elle est maintenant dans le backend Go.
+hx-trigger="load" : HTMX charge le fragment dès que l'élément entre dans le DOM.
+hx-swap="outerHTML" : le div se remplace lui-même par la réponse — l'élément Go prend sa place exacte dans l'arbre DOM.
 */
 
-## Strangler fig
+## Step-01 — Le fragment Go (templ)
 
-- Identifier une branche de l'UI
-- Poser une frontière HTTP claire
-- Servir JSON ou HTML selon le client
-- Remplacer une zone, pas l'application
-
-/*
-Raconter la stratégie de migration progressive.
-On garde l'application vivante et on choisit des zones: la liste d'articles, les tags populaires, le bouton favori, la pagination.
-Le point important est la frontière: une route ou un endpoint peut continuer à servir du JSON à Preact et commencer à servir du HTML à HTMX.
-Le nouveau système grandit autour de l'ancien jusqu'à ce que certaines branches Preact deviennent inutiles.
-*/
-
-## Le levier HTTP
-
-```text
-Accept: application/json  -> données pour Preact
-Accept: text/html         -> fragment pour HTMX
-
-Content-Type: application/json
-Content-Type: text/html
+```go
+// internal/templates/tags.templ
+templ TagsSidebar(tags []string) {
+    <div class="sidebar">
+        <p>Popular Tags</p>
+        <div class="tag-list">
+            for _, tag := range tags {
+                <a class="tag-pill tag-default"
+                   data-tag={ tag }
+                   onclick="document.dispatchEvent(
+                     new CustomEvent('conduit:tag', {
+                       bubbles: true,
+                       detail: this.dataset.tag
+                     }))">
+                   { tag }
+                </a>
+            }
+        </div>
+    </div>
+}
 ```
 
-/*
-Le README du dépôt parle de jouer sur le Content-Type pour renvoyer soit du JSON, soit du HTML.
-Dans la pratique, le couple intéressant est: la requête exprime ce qu'elle accepte, la réponse annonce ce qu'elle contient.
-Ce levier permet de comparer les deux approches sur le même cas métier, sans devoir dupliquer tout le routage.
-*/
-
-## Premier candidat: lecture seule
-
-- Tags populaires
-- Liste d'articles
-- Pagination
+`data-tag` + `this.dataset.tag` : la valeur du tag n'est **jamais interpolée dans une chaîne JS** → pas d'injection XSS.
 
 /*
-Commencer par les zones avec peu ou pas de mutation.
-`PopularTags` charge une liste puis déclenche un filtre.
-`Pagination` ne fait que choisir une page.
-La liste d'articles combine les deux.
-Ce sont de bonnes premières migrations parce que les erreurs sont visibles, le rollback est simple, et la surface d'état est limitée.
+Deux points à souligner.
+1. Le HTML produit est identique à ce que Preact générait — l'utilisateur ne voit rien.
+2. Le pattern data-tag est une protection XSS : on ne construit pas onclick="...go('{tag}')" avec la valeur du tag dans la string JS. On lit this.dataset.tag au moment du clic, depuis l'attribut DOM.
 */
 
-## Un composant devient un fragment
+## Step-01 — Pattern 1 : CustomEvent DOM
 
-```text
-ArticlePreview(article)
-  Preact: props -> DOM
-  Go:     data  -> HTML
+```mermaid
+flowchart TD
+    A["🖱️ Clic sur un tag<br/>(fragment Go)"]
+    B["dispatchEvent<br/>CustomEvent('conduit:tag', { detail: tag })"]
+    C["Home.tsx écoute 'conduit:tag'<br/>document.addEventListener"]
+    D["setState Preact<br/>setTag · setActiveTab · setPage(1)"]
+    E["Fil d'articles rechargé<br/>(encore Preact en step-01)"]
+
+    A --> B --> C --> D --> E
 ```
 
-/*
-Souligner que le vocabulaire change moins qu'on ne le croit.
-On garde l'idée de composant: une entrée, un rendu, un contrat.
-La différence est l'endroit où le rendu a lieu.
-Un composant Preact dépend d'un objet JSON et du runtime client.
-Un fragment Go dépend de données serveur et produit directement le HTML attendu par le navigateur.
-*/
-
-## WebComponents SSR
-
-- Balises métier stables
-- HTML initial déjà utile
-- Upgrade progressif côté navigateur
-- JavaScript réservé au comportement local
+Go et Preact **ne se connaissent pas** — ils communiquent via le DOM.
 
 /*
-Préciser ce que l'on entend par WebComponents rendus côté serveur.
-Le serveur peut envoyer des balises personnalisées avec leur contenu initial.
-Le navigateur affiche déjà quelque chose, puis le custom element peut être chargé pour ajouter un comportement local.
-Ce modèle nous aide à garder des frontières explicites: le serveur donne l'état initial, le composant client n'est pas obligé de refaire toute la récupération de données.
+Ce découplage est intentionnel.
+Le fragment Go ne sait pas que Preact existe. Preact ne sait pas que le fragment vient de Go.
+Ils parlent via un événement DOM standard — exactement comme deux bibliothèques indépendantes.
+C'est ce qui rend la migration réversible : on peut remplacer un côté sans toucher l'autre.
 */
 
-## HTMX: l'interaction comme attribut
+---
+
+## Step-02 — ArticleFeed : l'état s'effondre
+
+**Home.tsx avant (step-01) :**
+
+```ts
+const [articles, setArticles]           = useState<Article[]>([]);
+const [articlesCount, setArticlesCount] = useState(0);
+const [page, setPage]                   = useState(1);
+const [currentActiveTab, setActiveTab]  = useState('global');
+const [tag, setTag]                     = useState('');
+const [isLoading, setIsLoading]         = useState(false);
+// + useEffect + apiGetArticles + rendu JSX complet…
+```
+
+**Home.tsx après (step-02) :**
+
+```ts
+const isAuthenticated = useStore(state => !!state.user);
+// c'est tout.
+```
+
+De **6 états** à **1** — sans changer une ligne visible pour l'utilisateur.
+
+/*
+C'est le chiffre le plus frappant de toute la migration.
+Tout le code de fetch, d'orchestration et de rendu des articles a disparu côté client.
+Il n'a pas été supprimé — il a été déplacé dans le fragment Go, là où il peut être rendu directement en HTML.
+L'UX est identique. Rien n'a changé pour l'utilisateur.
+*/
+
+## Step-02 — Fragment auto-rafraîchissant
+
+Le fragment Go contient **ses propres attributs HTMX** :
 
 ```html
-<button
-  hx-post="/articles/hello-world/favorite"
-  hx-target="closest .article-preview"
-  hx-swap="outerHTML">
-  12
+<!-- Onglets — se rechargent eux-mêmes -->
+<a hx-get="/hda/articles?tab=global&page=1"
+   hx-target="#article-feed" hx-swap="outerHTML">
+  Global Feed
+</a>
+
+<!-- Pagination — idem -->
+<a hx-get="/hda/articles?tab=global&page=2"
+   hx-target="#article-feed" hx-swap="outerHTML">
+  2
+</a>
+```
+
+Le fragment se remplace lui-même. **Zéro JavaScript** pour la navigation interne.
+
+/*
+Concept clé : un fragment peut porter ses propres déclencheurs.
+Une fois monté dans le DOM, il n'a besoin de personne pour paginer ou changer d'onglet.
+Avant : setPage, setActiveTab, useEffect — tout ça vivait dans Home.tsx.
+Maintenant : ça vit dans le HTML lui-même, sous forme d'attributs déclaratifs.
+*/
+
+## Step-02 — Pattern 2 : htmx.ajax() comme pont
+
+```mermaid
+flowchart TD
+    T["🖱️ Clic tag (fragment Go)<br/>CustomEvent('conduit:tag')"]
+    H["Home.tsx — useEffect<br/>document.addEventListener"]
+    J["window.htmx.ajax('GET',<br/>'/hda/articles?tab=tag&tag=go&page=1',<br/>{ target: '#article-feed' })"]
+    G["🐹 Go → ArticleFeed<br/>filtré par tag"]
+
+    T --> H --> J --> G
+```
+
+6 lignes de JavaScript — tout ce qui reste pour connecter les deux fragments.
+
+/*
+Pourquoi htmx.ajax() ici ? HTMX ne peut pas lire event.detail pour construire dynamiquement l'URL d'un hx-get.
+Le pont JS est minimal et intentionnel : il traduit un événement DOM en appel HTMX avec le bon paramètre.
+C'est le seul couplage JavaScript restant entre les deux fragments Go sur la Home.
+*/
+
+---
+
+## Step-03 — Profile : pont routeur → fragment
+
+`Profile.tsx` reçoit le `username` du routeur Preact et doit en déduire le type d'onglet depuis l'URL :
+
+```ts
+// Profile.tsx — tout ce qui reste pour les articles
+useEffect(() => {
+    const type = /.*\/favorites/.test(url) ? 'favorited' : 'author';
+    window.htmx.ajax(
+        'GET',
+        `/hda/profile/articles?username=${encodeURIComponent(username)}&type=${type}&page=1`,
+        { target: '#profile-articles', swap: 'outerHTML' }
+    );
+}, [url, username]);
+```
+
+De **5 états** à **1** (`user` — pour le header uniquement).
+
+/*
+Nouveau pattern : le fragment ne peut pas démarrer seul — il a besoin de paramètres que seul le routeur Preact connaît.
+Le useEffect réagit aux changements d'URL ET de username : naviguer de /@alice vers /@alice/favorites recharge le fragment avec le bon type.
+Après ce chargement initial, le fragment se débrouille seul pour les onglets, la pagination, le contenu.
+*/
+
+## Step-03 — Pattern 3 : routeur Preact → fragment
+
+```mermaid
+flowchart TD
+    A["🌐 Navigation<br/>/@username/favorites"]
+    B["Profile.tsx<br/>useEffect sur url+username<br/>déduit type='favorited'"]
+    C["htmx.ajax → /hda/profile/articles<br/>?username=…&type=favorited&page=1"]
+    D["🐹 Go → ProfileArticlesFeed<br/>onglets + articles + pagination"]
+    E["🖱️ Clic onglet dans le fragment<br/>hx-get='…&type=author'<br/>hx-target='#profile-articles'"]
+    F["🐹 Go → ProfileArticlesFeed<br/>(nouveau type)"]
+
+    A --> B --> C --> D --> E --> F
+```
+
+Preact gère l'URL. Go gère le contenu. **Frontière nette.**
+
+/*
+La séparation des responsabilités est claire et explicite.
+Preact : routing, session, contexte utilisateur.
+Go : rendu du contenu, onglets, pagination.
+Le useEffect est le seul point de contact — un câble fin entre deux mondes indépendants.
+*/
+
+---
+
+## Step-04 — Commentaires : les premières mutations
+
+Les 3 premiers steps ne faisaient que du `hx-get`.
+Step-04 introduit **l'écriture** avec `hx-post` et `hx-delete` :
+
+```html
+<!-- Formulaire d'ajout -->
+<form hx-post="/hda/articles/{slug}/comments"
+      hx-target="#comments" hx-swap="innerHTML">
+    <textarea name="body"></textarea>
+    <button type="submit">Post Comment</button>
+</form>
+
+<!-- Bouton supprimer -->
+<button hx-delete="/hda/articles/{slug}/comments/{id}"
+        hx-target="#comments" hx-swap="innerHTML">
+    🗑
 </button>
 ```
 
+Après chaque mutation, Go re-rend **la liste entière** → toujours cohérente.
+
 /*
-Présenter HTMX comme un langage d'interaction HTTP dans le HTML.
-Le bouton n'a pas besoin de savoir comment reconstruire toute la carte article.
-Il dit quelle requête envoyer, quelle cible remplacer, et comment appliquer la réponse.
-Le serveur devient responsable de renvoyer un fragment cohérent après la mutation.
+La logique de "re-rendre la liste entière" mérite d'être explicitée.
+C'est délibéré : le serveur est la source de vérité. Pas de patch client à maintenir, pas d'état intermédiaire fragile.
+innerHTML ici (vs outerHTML pour les autres fragments) : le div #comments reste stable entre les réponses — HTMX peut toujours le cibler après un POST ou DELETE.
 */
 
-## Exemple: favori
+## Step-04 — JWT sans toucher le DOM
 
-```text
-Avant: mutation -> JSON article -> setState
-Après: mutation -> HTML article -> swap
+**Problème :** HTMX doit authentifier ses requêtes, mais le token JWT vit dans Zustand (mémoire JS).
+
+| Approche | Token visible dans DevTools ? |
+|---|---|
+| `hx-headers='{"Authorization":"Token xxx"}'` | **Oui** ⚠️ (attribut HTML, DOM, logs…) |
+| `htmx:configRequest` | **Non** ✅ (mémoire JS uniquement) |
+
+```ts
+// index.tsx — une seule fois, couvre toute l'app
+document.addEventListener('htmx:configRequest', (e) => {
+    const token = useStore.getState().user?.token;
+    if (token) {
+        e.detail.headers['Authorization'] = `Token ${token}`;
+    }
+});
 ```
 
 /*
-Reprendre `ArticlePreview`.
-Avec Preact, le bouton favori met à jour un état local avec la réponse JSON.
-Avec HTMX, l'action peut renvoyer le bouton ou la carte entière.
-Le compromis se voit immédiatement: moins d'état client, mais une discipline plus forte sur la forme des fragments renvoyés.
+htmx:configRequest se déclenche juste avant chaque requête HTMX — c'est le point d'injection idéal.
+hx-headers écrirait le token dans le DOM : visible dans l'inspecteur d'éléments, dans les logs, potentiellement dans des screenshots de support.
+Ici le token reste en mémoire Zustand. Une seule ligne dans index.tsx couvre tous les fragments actuels et futurs.
 */
 
-## Exemple: filtre par tag
+---
 
-```mermaid
-sequenceDiagram
-    participant N as Navigateur
-    participant S as Serveur
+## Récapitulatif : 4 steps, 4 patterns
 
-    N->>S: GET /articles?tag=go
-    S-->>N: liste HTML
-    S-->>N: pagination HTML
-    S-->>N: onglet actif HTML
-```
+| Step | Fragment migré | Ce qui est introduit |
+|---|---|---|
+| 01 | PopularTags | Fragment simple + `CustomEvent` DOM |
+| 02 | ArticleFeed | Fragment auto-rafraîchissant + `htmx.ajax()` |
+| 03 | ProfileArticles | Pont routeur Preact → fragment |
+| 04 | Commentaires | `hx-post` / `hx-delete` + `htmx:configRequest` |
 
 /*
-Le filtre par tag montre que la cible n'est pas toujours un petit bouton.
-Quand l'utilisateur clique un tag, plusieurs zones peuvent changer: l'onglet actif, la liste, la pagination.
-On doit décider si la réponse remplace seulement la liste ou un conteneur plus large.
-Cette décision est l'équivalent HTMX d'une décision de découpage de composants.
-*/
-
-## Les difficultés rencontrées
-
-- Qui possède l'état ?
-- Qui possède l'URL ?
-- Comment transporter le token ?
-- Quelle cible remplacer ?
-- Comment tester les fragments ?
-
-/*
-Ne pas vendre la migration comme gratuite.
-L'état ne disparaît pas, il change de place.
-L'URL doit rester partageable.
-L'authentification doit fonctionner pour les appels HTMX.
-Les fragments doivent être testables et cohérents.
-Et il faut surveiller la duplication temporaire entre le rendu Preact et le rendu Go.
+Chaque step introduit exactement un nouveau concept.
+C'est volontaire : on voulait pouvoir montrer chaque pattern isolément, sans surcharge cognitive.
+Ces 4 patterns couvrent l'essentiel des cas réels : lecture simple, lecture paramétrée, routing externe, mutation authentifiée.
 */
 
 ## La cohabitation
 
 ```mermaid
 graph TD
-    R[Route Preact]
-    R --> H[Zone historique]
-    R --> S[Zone stranglée]
-    S --> G["hx-get → HTML"]
-    S --> P["hx-post → HTML"]
+    subgraph spa["SPA Preact - shell"]
+        R["Router"]
+        H["Header / Nav"]
+        A["Article.tsx<br/>body + ArticleMeta"]
+    end
+    subgraph go["Fragments Go - /hda/*"]
+        T["PopularTags"]
+        F["ArticleFeed"]
+        P["ProfileArticles"]
+        C["Comments<br/>(GET + POST + DELETE)"]
+    end
+    R --> H
+    R --> A
+    A -.->|htmx.process| C
+    R -.->|htmx.ajax| F
+    R -.->|htmx.ajax| P
+    T -.->|conduit:tag| F
 ```
 
 /*
-Insister sur le fait que la cohabitation est un état normal de la migration, pas un échec.
-Pendant un moment, certaines routes restent pilotées par Preact, tandis que des morceaux de page se rechargent via HTMX.
-Le rôle de l'équipe est de rendre cette cohabitation explicite: conventions de routes, conventions de fragments, conventions de tests, et critères de sortie.
+Voilà l'état final après les 4 steps.
+Preact reste le shell : routing, header, et les zones qui nécessitent une logique client riche (rendu Markdown, ArticleMeta avec état d'authentification).
+Go couvre tout le contenu stateless : listes, pagination, commentaires.
+La cohabitation n'est pas un état d'échec — c'est le résultat voulu d'un strangler fig bien mené.
 */

@@ -1,11 +1,11 @@
 .mermaid {
-    background-color: white;
+    background-color: transparent;
     display: block;
 }
 
 pre:has(.language-mermaid) {
     width: 90%;
-    background: white;
+    background: transparent;
 
     svg {
         margin: 0 auto;

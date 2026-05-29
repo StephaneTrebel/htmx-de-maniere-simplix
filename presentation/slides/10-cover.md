@@ -7,13 +7,12 @@ Thomas, Stéphane, une SPA Preact, un backend Go, et du HTML qui revient au cent
 !image(assets/realworld-logo.png,Logo RealWorld Example App,420)
 
 /*
-Ouvrir en posant le cadre: ce n'est pas une conférence "HTMX va tout remplacer".
-C'est le récit d'une migration volontairement concrète, menée avec Thomas, sur un vrai exemple d'application.
-On part d'une SPA Preact existante, on garde ce qui fonctionne, et on introduit progressivement un backend Go capable de rendre des fragments HTML et des WebComponents côté serveur.
-Le mot "simplix" donne le ton: chercher la simplicité praticable, pas la simplification magique.
+Ce n'est pas une conférence "HTMX va tout remplacer" — c'est le récit d'une migration concrète, menée sur une vraie application.
+Poser le ton dès le départ : "simplix", pas "simple". On cherche la simplicité praticable, pas la simplification magique.
+On va vous montrer du code qui tourne, des patterns qui ont marché, et ce qui reste dur.
 */
 
-## Qui sommes-nous?
+## Qui sommes-nous ?
 
 !image(assets/stephane_thomas.webp,portraits,600)
 
@@ -24,28 +23,32 @@ Le mot "simplix" donne le ton: chercher la simplicité praticable, pas la simpli
 | Mainteneur OSS || Rust |
 | Ambassadeur CNCF || Rust |
 
+/*
+Présentation rapide. La colonne "Rust" de Stéphane est volontaire — c'est son domaine de prédilection, et oui, il fait quand même du web avec nous aujourd'hui.
+Garder court, l'audience est là pour le contenu.
+*/
+
 ## Le pacte
 
-- Un **vrai cas applicatif**, pas une todo-list
-- Une **migration progressive**, pas une réécriture héroïque
-- Comparer **SPA+JSON** et **HDA+HTML** sur le même terrain
+- Un **vrai cas applicatif** — pas une todo-list
+- Une **migration progressive** — pas une réécriture héroïque
+- **SPA+JSON** et **HDA+HTML** comparés sur le même terrain
 
 /*
-Dire que le sujet devient intéressant parce qu'on ne change pas seulement une librairie.
-On change le contrat entre le navigateur et le serveur.
-La promesse n'est pas "moins de JavaScript partout", mais "moins de JavaScript là où il ne porte pas assez de valeur".
-Le terrain commun permet aussi d'éviter les débats abstraits: quand un bouton favori, une pagination, ou une liste de tags doit marcher, on voit vite où chaque approche aide ou complique.
+Trois engagements envers l'audience.
+Insister sur "progressive" : l'application tourne en production à chaque step, l'utilisateur ne voit rien.
+Le "même terrain" est important : on compare les deux approches sur exactement les mêmes fonctionnalités, pas sur des exemples fabriqués pour avantager l'une ou l'autre.
 */
 
 ## Trois mouvements
 
-1. A **Realworld SPA application**
-2. WebComponents rendus par **Go** + **HTMX** (en mode *strangler fig*)
-3. **Conclusions**: ce qui devient simple, ce qui reste dur
+1. Le point de départ : une **SPA Preact** existante
+2. La migration *strangler fig* : **fragments HTML** servis par **Go + HTMX**
+3. **Conclusions** : ce qui devient simple, ce qui reste dur
 
 /*
-Annoncer les trois chapitres.
-Le premier installe le domaine et le point de départ technique.
-Le deuxième raconte l'expérience de migration: découpage, rendu serveur, cohabitation avec Preact, HTMX pour les interactions.
-Le troisième assume les conclusions: les bénéfices, les coûts, les limites, et les heuristiques qu'on garderait pour un prochain projet.
+Annoncer le plan en trois actes.
+Acte 1 : on installe le contexte — l'app, le code, les choix initiaux.
+Acte 2 : on migre composant par composant, en montrant le code à chaque étape.
+Acte 3 : on assume les conclusions — sans dogme. Si ça ne vaut pas le coup, on le dit.
 */

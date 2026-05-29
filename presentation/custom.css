@@ -3,3 +3,43 @@ section.no-bullets ol {
   list-style: none;
   padding-left: 0;
 }
+
+section.compact li {
+  line-height: 1.3;
+  margin-bottom: 0.1em;
+}
+
+section.compact p {
+  line-height: 1.3;
+  margin-bottom: 0.2em;
+}
+
+section th,
+section td {
+  padding: 0.5em 1.2em;
+}
+
+section p {
+  line-height: 1.8;
+}
+
+section li {
+  line-height: 1.8;
+  margin-bottom: 0.4em;
+}
+
+section pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+section :not(pre) > code {
+  background: rgba(120, 224, 143, 0.18);
+  border: 1px solid rgba(120, 224, 143, 0.35);
+  border-radius: 4px;
+  padding: 0.1em 0.45em;
+}
+
+section pre .hljs {
+  background: #edfff3;
+}

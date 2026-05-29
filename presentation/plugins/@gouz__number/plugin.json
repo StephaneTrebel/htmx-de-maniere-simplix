@@ -1,0 +1,1 @@
+{"addHTML":"<footer id='numslide'></footer>","onSlideChange":"window.slidesk.plugin_number();","addStyles":["plugins/@gouz__number/number.css"],"addScripts":["plugins/@gouz__number/number.js"],"files":["number.js","number.css"],"tags":["number","presentation","page","slide"]}

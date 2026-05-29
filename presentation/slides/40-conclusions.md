@@ -1,96 +1,109 @@
-//@ < TBD
-
 ## .[chapter]
 
 # Conclusions
 
 /*
-Chapitre 3.
-On quitte le récit de migration pour formuler les apprentissages.
-Le but est de donner à l'audience une grille de décision, pas une religion technique.
+On sort du récit de migration pour formuler ce qu'on en retire.
+L'objectif n'est pas de vendre HTMX — c'est de donner une grille de décision pour savoir quand ça vaut le coup, et quand ça ne vaut pas.
 */
 
-## Ce qui devient plus simple
+## Ce qui a disparu côté client
 
-- Moins d'état client pour les parcours serveur
-- Moins de mapping JSON -> DOM
-- Des interactions HTTP plus visibles
-- Un rendu initial plus proche du produit
+| Composant migré | États Preact supprimés |
+|---|---|
+| PopularTags | fetch + loading + tags[] |
+| ArticleFeed (Home) | **6 → 1** (isAuthenticated) |
+| ProfileArticles | **5 → 1** (user — pour le header) |
+| Comments | comments[] + commentBody |
+
+Moins d'état client = moins de synchronisation à maintenir.
 
 /*
-Les gains apparaissent quand l'interface est principalement la projection d'un état serveur.
-La liste, la pagination, les tags, certains boutons de mutation, les messages d'erreur de formulaires: tout cela peut devenir plus direct.
-Le HTML redevient un format d'application, pas seulement le résultat final caché derrière le framework.
+Ces chiffres sont réels — ils viennent du diff entre step-00 et step-04.
+6 états → 1 dans Home.tsx : le plus frappant.
+Le point important : ces états ne portaient pas de valeur côté client. Ils ne faisaient que refléter l'état du serveur. Déplacer ce travail côté serveur n'est pas une perte — c'est une clarification des responsabilités.
 */
 
-## Ce qui ne disparaît pas
+## Ce qui devient plus simple .[no-bullets]
 
-- La conception des frontières
-- Les cas concurrents
-- Les erreurs et validations
-- L'historique navigateur
-- Les tests end-to-end
+- **Moins de mapping JSON → DOM** — le serveur renvoie le rendu final
+- **Navigation déclarative** — onglets et pagination vivent dans le HTML
+- **Mutations sans état intermédiaire** — `hx-post` / `hx-delete` → re-rendu complet
+- **Rendu testable côté serveur** — les templates Go sont des fonctions pures
 
 /*
-Être net: HTMX ne supprime pas la conception logicielle.
-Il rend certains chemins plus courts, mais il ne choisit pas pour nous la bonne granularité de fragment, la bonne stratégie d'URL, ou la bonne gestion d'erreur.
-Les tests restent indispensables, peut-être même plus importants au début parce que l'équipe change de réflexes.
+Ces gains sont concrets et mesurables dans le diff.
+Le mapping JSON → DOM est la tâche la plus répétitive d'une SPA : récupérer des données, les mapper en JSX, gérer les états de chargement et d'erreur.
+Quand le serveur envoie directement le HTML final, cette couche disparaît.
+*/
+
+## Ce qui ne disparaît pas .[no-bullets]
+
+- **La conception des frontières** — où placer la ligne Go / Preact ?
+- **L'historique navigateur** — les fragments ne changent pas l'URL
+- **Les interactions riches** — éditeur Markdown, drag & drop : Preact reste meilleur
+- **Les tests end-to-end** — plus importants qu'avant (nouveaux réflexes à acquérir)
+- **La duplication temporaire** — pendant la migration, deux systèmes rendent la même zone
+
+/*
+HTMX ne supprime pas la conception logicielle — il déplace le curseur.
+La question de la granularité des fragments, de la gestion des erreurs, du routage : tout ça reste à décider.
+La duplication temporaire est normale dans un strangler fig — l'accepter explicitement évite de paniquer en la découvrant.
 */
 
 ## Nos heuristiques
 
-1. Migrer d'abord les lectures
-2. Remplacer un conteneur cohérent
-3. Renvoyer un fragment complet après mutation
-4. Garder Preact pour les vraies îles riches
-5. Faire du HTML un contrat versionné
+1. **Migrer d'abord les lectures** — moins de risque, rollback immédiat
+2. **Remplacer un conteneur cohérent** — le fragment doit se re-rendre de façon autonome
+3. **Après une mutation, re-rendre complet** — le serveur est la source de vérité
+4. **Garder Preact pour les îles riches** — auth UI, éditeur, interactions complexes
+5. **Ne jamais exposer le token dans le DOM** — `htmx:configRequest` > `hx-headers`
 
 /*
-Donner les règles pratiques que l'on a envie de conserver.
-Les lectures sont des cibles plus sûres.
-Un swap doit viser une zone qui peut être rendue de manière autonome.
-Après une mutation, le serveur doit renvoyer un état complet, pas un patch mental fragile.
-Et il ne faut pas avoir honte de garder Preact là où une interaction très riche le justifie.
+Ces règles viennent de l'expérience sur ce projet — pas de la théorie.
+La règle 3 mérite d'être développée : "patch mental fragile" signifie qu'on demande au client de deviner l'état après une mutation. Le re-rendu complet élimine cette hypothèse.
+La règle 5 est la seule à caractère sécurité — la seule qu'on ne peut pas transiger.
 */
 
 ## Le vrai changement
 
-> On ne demande plus au navigateur de reconstruire toute l'application à partir de données.
+```mermaid
+graph LR
+    subgraph SPA
+        J["JSON"] --> R["Rendu JS"] --> D["DOM"]
+    end
+    subgraph HDA
+        H["HTML"] --> D2["DOM"]
+    end
+```
+
+> On ne demande plus au navigateur de reconstruire l'application à partir de données.
 
 /*
-Laisser respirer cette idée.
-Le changement de paradigme est là: dans une SPA, le serveur fournit surtout des données et le client reconstitue l'interface.
-Dans une application hypermedia, le serveur peut aussi fournir les transitions d'interface sous forme de HTML.
-Ce n'est pas un retour en arrière, c'est un rééquilibrage.
+Laisser cette phrase respirer.
+Dans une SPA, le serveur fournit des données et le client reconstruit l'interface.
+Dans une HDA, le serveur fournit aussi les transitions d'interface, sous forme de HTML.
+Ce n'est pas un retour en arrière — c'est un rééquilibrage entre ce que le client et le serveur font le mieux.
 */
 
 ## Simplix, pas simpliste
 
-- Simple: moins de couches quand elles n'aident pas
-- Explicite: HTTP, HTML, cibles, fragments
-- Mixte: accepter plusieurs modèles pendant la migration
-
-/*
-Conclure sur le titre.
-"Simplix" ne veut pas dire naïf.
-La simplicité visée est une simplicité d'exploitation: comprendre le chemin d'un clic, savoir quelle réponse est attendue, remplacer la bonne zone, garder le code lisible.
-La migration progressive est importante parce qu'elle permet de découvrir ces règles en contexte réel.
-*/
-
-## À retenir
-
 ```text
-SPA+JSON n'est pas l'ennemi.
-HTML+HTMX n'est pas une baguette magique.
+SPA + JSON    → pas l'ennemi
+HTML + HTMX   → pas une baguette magique
 
-Le bon test:
-est-ce que le prochain changement produit
-sera plus facile à livrer ?
+La bonne question :
+"Le prochain changement produit
+ sera-t-il plus facile à livrer ?"
 ```
 
+- **Simple** — moins de couches là où elles n'apportent pas de valeur
+- **Explicite** — HTTP, HTML, cibles nommées, fragments autonomes
+- **Mixte** — plusieurs modèles peuvent cohabiter dans la même application
+
 /*
-Terminer sans dogme.
-Le meilleur argument pour HTMX dans cette histoire n'est pas la mode, c'est la capacité à réduire la distance entre une intention utilisateur et le HTML final.
-Si cette distance diminue sans rendre les frontières floues, on gagne.
-Sinon, on garde l'outil qui marche.
+Clore sans dogme.
+Si HTMX réduit la distance entre une intention utilisateur et le HTML final sans rendre les frontières floues — on gagne.
+Si ce n'est pas le cas sur votre projet, gardez l'outil qui marche.
+Le titre "simplix" n'est pas une promesse de facilité — c'est une invitation à chercher la simplicité praticable, là où elle existe vraiment.
 */
