@@ -16,12 +16,12 @@ On va vous montrer du code qui tourne, des patterns qui ont marché, et ce qui r
 
 !image(assets/stephane_thomas.webp,portraits,600)
 
-| **Thomas Labarussias**| | **Stéphane Trebel**  |
+| **Thomas Labarussias**|&nbsp;&nbsp;| **Stéphane Trebel**  |
 |-|-|-|
-| Staff DevOps/SRE || Rust |
-| Ex-DevRel || Rust |
-| Mainteneur OSS || Rust |
-| Ambassadeur CNCF || Rust |
+| Staff DevOps/SRE || Freelance 👨‍💻|
+| Ex-DevRel || Web Dev 🌍|
+| Mainteneur OSS || Rustacé 🦀 |
+| Ambassadeur CNCF || Twitch & YouTube 📺|
 
 /*
 Présentation rapide. La colonne "Rust" de Stéphane est volontaire — c'est son domaine de prédilection, et oui, il fait quand même du web avec nous aujourd'hui.
