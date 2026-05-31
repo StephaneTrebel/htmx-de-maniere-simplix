@@ -1,6 +1,5 @@
-## .[chapter]
-
-# De JSON à HTML, sans big bang
+## Sans big bang .[chapter]
+# De JSON à HTML
 
 /*
 On a vu la SPA de départ — propre, fonctionnelle, 6 states dans Home.tsx.
@@ -267,15 +266,17 @@ Après ce chargement initial, le fragment se débrouille seul pour les onglets, 
 ## Step-03 — Pattern 3 : routeur Preact → fragment
 
 ```mermaid
-flowchart TD
-    A["🌐 Navigation<br/>/@username/favorites"]
-    B["Profile.tsx<br/>useEffect sur url+username<br/>déduit type='favorited'"]
-    C["htmx.ajax → /hda/profile/articles<br/>?username=…&type=favorited&page=1"]
-    D["🐹 Go → ProfileArticlesFeed<br/>onglets + articles + pagination"]
-    E["🖱️ Clic onglet dans le fragment<br/>hx-get='…&type=author'<br/>hx-target='#profile-articles'"]
-    F["🐹 Go → ProfileArticlesFeed<br/>(nouveau type)"]
+block-beta
+    columns 5
+    A["🌐 Navigation<br/>/@username/favorites"] space B["Profile.tsx<br/>useEffect sur url+username<br/>déduit type='favorited'"] space C["htmx.ajax → /hda/profile/articles<br/>?username=…&type=favorited&page=1"]
+    space space space space space 
+    F["🐹 Go → ProfileArticlesFeed<br/>(nouveau type)"] space E["🖱️ Clic onglet dans le fragment<br/>hx-get='…&type=author'<br/>hx-target='#profile-articles'"] space D["🐹 Go → ProfileArticlesFeed<br/>onglets + articles + pagination"]
 
-    A --> B --> C --> D --> E --> F
+    A-->B
+    B-->C
+    C-->D
+    D-->E
+    E-->F
 ```
 
 Preact gère l'URL. Go gère le contenu. **Frontière nette.**
@@ -319,12 +320,12 @@ innerHTML ici (vs outerHTML pour les autres fragments) : le div #comments reste 
 
 ## Step-04 — JWT sans toucher le DOM
 
-**Problème :** HTMX doit authentifier ses requêtes, mais le token JWT vit dans Zustand (mémoire JS).
+**Problème :** HTMX doit authentifier ses requêtes, mais le token JWT vit dans Zustand (JS).
 
-| Approche | Token visible dans DevTools ? |
-|---|---|
-| `hx-headers='{"Authorization":"Token xxx"}'` | **Oui** ⚠️ (attribut HTML, DOM, logs…) |
-| `htmx:configRequest` | **Non** ✅ (mémoire JS uniquement) |
+| Approche |&nbsp;| Token visible dans DevTools ? |
+|---|---|---|
+| `hx-headers='{"Authorization":"Token xxx"}'` || **Oui** ⚠️ (attribut HTML, DOM, logs…) |
+| `htmx:configRequest` || **Non** ✅ (mémoire JS uniquement) |
 
 ```ts
 // index.tsx — une seule fois, couvre toute l'app
@@ -346,12 +347,12 @@ Ici le token reste en mémoire Zustand. Une seule ligne dans index.tsx couvre to
 
 ## Récapitulatif : 4 steps, 4 patterns
 
-| Step | Fragment migré | Ce qui est introduit |
-|---|---|---|
-| 01 | PopularTags | Fragment simple + `CustomEvent` DOM |
-| 02 | ArticleFeed | Fragment auto-rafraîchissant + `htmx.ajax()` |
-| 03 | ProfileArticles | Pont routeur Preact → fragment |
-| 04 | Commentaires | `hx-post` / `hx-delete` + `htmx:configRequest` |
+| Step |&nbsp;| Fragment migré | Ce qui est introduit |
+|---|----|---|---|
+| 01 || PopularTags | Fragment simple + `CustomEvent` DOM |
+| 02 || ArticleFeed | Fragment auto-rafraîchissant + `htmx.ajax()` |
+| 03 || ProfileArticles | Pont routeur Preact → fragment |
+| 04 || Commentaires | `hx-post` / `hx-delete` + `htmx:configRequest` |
 
 /*
 Chaque step introduit exactement un nouveau concept.

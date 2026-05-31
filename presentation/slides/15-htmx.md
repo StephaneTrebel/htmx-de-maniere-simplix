@@ -1,6 +1,5 @@
-## .[chapter]
-
-# Mais d'abord — HTMX, késaco ?
+## Mais d'abord….[chapter]
+# HTMX, késaco ?
 
 /*
 Avant de plonger dans la migration, poser les bases pour que tout le monde soit au même niveau.
@@ -69,12 +68,12 @@ Transition : "Voilà le cycle. Maintenant regardons comment ça change la donne 
 
 ## Ce que ça change
 
-| | **SPA (JSON)** | **HDA (HTML)** |
-|---|---|---|
-| **Réponse serveur** | `{ "articles": [...] }` | `<ul><li>…</li></ul>` |
-| **Rendu** | côté client (JS) | côté serveur |
-| **État** | store JS | URL + DOM |
-| **Diff/patch** | framework | HTMX swap |
+| | **SPA (JSON)** |&nbsp;&nbsp;&nbsp;| **HDA (HTML)** |
+|---|---|---|---|
+| **Réponse serveur** | `{ "articles": [...] }` || `<ul><li>…</li></ul>` |
+| **Rendu** | côté client (JS) || côté serveur |
+| **État** | store JS || URL + DOM |
+| **Diff/patch** | framework || HTMX swap |
 
 /*
 Ne pas présenter ça comme une victoire de l'un sur l'autre.

@@ -1,6 +1,7 @@
 .mermaid {
     background-color: transparent;
     display: block;
+    fill: var(--sd-primary-color);
 }
 
 pre:has(.language-mermaid) {

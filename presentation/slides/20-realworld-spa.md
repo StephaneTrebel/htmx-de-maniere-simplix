@@ -1,6 +1,5 @@
-## .[chapter]
-
-# Une SPA Preact — le point de départ
+## Le point de départ .[chapter]
+# Une S.P.A. Preact
 
 /*
 On a vu HTMX dans l'abstrait. Maintenant on pose le contexte réel : quelle application, quel code, quels choix.
