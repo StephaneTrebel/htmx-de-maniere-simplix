@@ -68,12 +68,12 @@ La règle 5 est la seule à caractère sécurité — la seule qu'on ne peut pas
 ## Le vrai changement
 
 ```mermaid
-graph LR
-    subgraph SPA
-        J["JSON"] --> R["Rendu JS"] --> D["DOM"]
-    end
+graph TD
     subgraph HDA
         H["HTML"] --> D2["DOM"]
+    end
+    subgraph SPA
+        J["JSON"] --> R["Rendu JS"] --> D["DOM"]
     end
 ```
 
@@ -93,8 +93,7 @@ SPA + JSON    → pas l'ennemi
 HTML + HTMX   → pas une baguette magique
 
 La bonne question :
-"Le prochain changement produit
- sera-t-il plus facile à livrer ?"
+"Le prochain changement produit sera-t-il plus facile à livrer ?"
 ```
 
 - **Simple** — moins de couches là où elles n'apportent pas de valeur

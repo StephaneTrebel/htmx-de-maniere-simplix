@@ -10,14 +10,14 @@ L'utilisateur n'a rien vu. Le code a changé. Voilà comment.
 ## La stratégie : Strangler Fig
 
 ```mermaid
-graph LR
-    subgraph avant["Avant"]
-        P1["⚛️ Preact<br/>tout"]
-    end
+graph TD
     subgraph apres["Après chaque step"]
         P2["⚛️ Preact<br/>shell"]
         G["🐹 Go<br/>fragment"]
         P2 -- "cohabite" --> G
+    end
+    subgraph avant["Avant"]
+        P1["⚛️ Preact<br/>tout"]
     end
 ```
 
@@ -106,7 +106,7 @@ hx-swap="outerHTML" : le div se remplace lui-même par la réponse — l'éléme
 
 ## Step-01 — Le fragment Go (templ)
 
-```go
+```html
 // internal/templates/tags.templ
 templ TagsSidebar(tags []string) {
     <div class="sidebar">

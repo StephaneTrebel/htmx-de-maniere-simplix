@@ -7,8 +7,12 @@ section {
   color: var(--sd-primary-color);
 }
 
-footer {
+footer:not(#numslide) {
   display: none;
+}
+
+#numslide {
+  color: var(--sd-primary-color);
 }
 
 h1 {
@@ -16,7 +20,7 @@ h1 {
   background-image: linear-gradient(
     -225deg,
     #153515 0%,
-    #155515 29%,
+      #127212 29%,
     #15d515 67%,
     #151515 100%
   );
@@ -92,12 +96,13 @@ section pre {
 }
 
 section :not(pre) > code {
-  /* background: rgba(120, 224, 143, 0.18); */
+  background: rgba(120, 224, 143, 0.18);
   border: 1px solid rgba(120, 224, 143, 0.35);
   border-radius: 4px;
-  padding: 0.1em 0.45em;
+  padding: 0.05em 0.05em;
 }
 
 section pre .hljs {
   background: #fff;
 }
+

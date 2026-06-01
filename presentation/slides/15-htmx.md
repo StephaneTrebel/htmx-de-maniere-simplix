@@ -84,18 +84,18 @@ La migration qu'on va montrer ne choisit pas un camp : elle déplace la frontiè
 
 ## Ce qu'HTMX sait faire .[no-bullets compact]
 
-- **hx-get** / **hx-post** / **hx-put** / **hx-patch** / **hx-delete**
-- **hx-target** : cibler n'importe quel élément du DOM
-- **hx-swap** : `innerHTML`, `outerHTML`, `beforebegin`, `afterend`, `prepend`, `append`…
-- **hx-trigger** : `click`, `change`, `keyup`, `load`, `revealed`, `every 2s`…
-- **hx-indicator** : afficher un spinner pendant la requête
-- **hx-confirm** : demander confirmation avant d'envoyer
-- **hx-include** : inclure d'autres champs dans la requête
-- **hx-headers** : ajouter des headers HTTP personnalisés
-- **hx-select** : n'extraire qu'une partie de la réponse HTML
-- **hx-select-oob** : mettre à jour plusieurs zones en une seule réponse
-- **hx-on** : écouter les événements du cycle HTMX (`htmx:afterRequest`, `htmx:beforeSwap`…)
-- **hx-request** : configurer timeout, credentials, mode CORS
+- `hx-get` / `hx-post` / `hx-put` / `hx-patch` / `hx-delete`
+- `hx-target` : cibler n'importe quel élément du DOM
+- `hx-swap` : **innerHTML**, **outerHTML**, **beforebegin**, **afterend**, **prepend**, **append**,…
+- `hx-trigger` : **click**, **change**, **keyup**, **load**, **revealed**, **every 2s**,…
+- `hx-indicator` : afficher un spinner pendant la requête
+- `hx-confirm` : demander confirmation avant d'envoyer
+- `hx-include` : inclure d'autres champs dans la requête
+- `hx-headers` : ajouter des headers HTTP personnalisés
+- `hx-select` : n'extraire qu'une partie de la réponse HTML
+- `hx-select-oob` : mettre à jour plusieurs zones en une seule réponse
+- `hx-on` : écouter les événements du cycle HTMX (`htmx:afterRequest`, `htmx:beforeSwap`, …)
+- `hx-request` : configurer timeout, credentials, mode CORS
 </br>
 - Extensions : **websockets**, **SSE**, **preload**…
 
