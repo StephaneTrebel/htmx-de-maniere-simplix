@@ -1,0 +1,129 @@
+package templates
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"traffic-dashboard/internal/model"
+)
+
+// DetailPanels renders the routing + payload panels for a selected event.
+// Returned as innerHTML for #detail-container via HTMX.
+templ DetailPanels(e *model.Event) {
+	<div class="panel-routing">
+		<h2>Routing</h2>
+		<dl>
+			<dt>Router</dt>
+			<dd>{ orDash(e.Router) }</dd>
+			<dt>Service</dt>
+			<dd>{ orDash(e.Service) }</dd>
+			<dt>Middleware</dt>
+			<dd>{ orDash(e.Middleware) }</dd>
+			<dt>Method</dt>
+			<dd>{ e.Request.Method }</dd>
+			<dt>Path</dt>
+			<dd>{ e.Request.Path }{ queryStr(e.Request.Query) }</dd>
+			<dt>Status</dt>
+			<dd>
+				<span class={ "badge", statusBadgeClass(e.Response.StatusCode) }>{ fmt.Sprintf("%d", e.Response.StatusCode) }</span>
+			</dd>
+			<dt>Duration</dt>
+			<dd>{ fmt.Sprintf("%d ms", e.Response.DurationMS) }</dd>
+			<dt>Content-Type</dt>
+			<dd>{ orDash(e.Response.ContentType) }</dd>
+			if e.Request.IsHTMX {
+				<dt>HTMX</dt>
+				<dd><span class="badge badge-htmx">HX-Request</span></dd>
+			}
+		</dl>
+		if len(e.Request.Headers) > 0 {
+			<details class="headers-details">
+				<summary>Request headers ({ fmt.Sprintf("%d", len(e.Request.Headers)) })</summary>
+				<div class="headers-scroll">
+					<table class="headers-table">
+						for _, k := range sortedKeys(e.Request.Headers) {
+							<tr>
+								<td>{ k }</td>
+								<td>{ e.Request.Headers[k] }</td>
+							</tr>
+						}
+					</table>
+				</div>
+			</details>
+		}
+		if len(e.Response.Headers) > 0 {
+			<details class="headers-details">
+				<summary>Response headers ({ fmt.Sprintf("%d", len(e.Response.Headers)) })</summary>
+				<div class="headers-scroll">
+					<table class="headers-table">
+						for _, k := range sortedKeys(e.Response.Headers) {
+							<tr>
+								<td>{ k }</td>
+								<td>{ e.Response.Headers[k] }</td>
+							</tr>
+						}
+					</table>
+				</div>
+			</details>
+		}
+	</div>
+	<div class="panel-payload">
+		<div class="payload-section">
+			<h3>Request body</h3>
+			if e.Request.Body != "" {
+				<pre><code class={ payloadLang(e.Request.Body, e.Request.Headers["Content-Type"]) }>{ e.Request.Body }</code></pre>
+			} else {
+				<p class="payload-empty">empty</p>
+			}
+		</div>
+		<div class="payload-section">
+			<h3>Response body</h3>
+			if e.Response.Body != "" {
+				<pre><code class={ payloadLang(e.Response.Body, e.Response.ContentType) }>{ e.Response.Body }</code></pre>
+			} else {
+				<p class="payload-empty">empty</p>
+			}
+		</div>
+	</div>
+}
+
+func payloadLang(body, ct string) string {
+	ctLower := strings.ToLower(ct)
+	if strings.Contains(ctLower, "json") {
+		return "language-json"
+	}
+	if strings.Contains(ctLower, "html") || strings.Contains(ctLower, "xml") || strings.Contains(ctLower, "svg") {
+		return "language-xml"
+	}
+	if strings.Contains(ctLower, "css") {
+		return "language-css"
+	}
+	if strings.Contains(ctLower, "javascript") {
+		return "language-javascript"
+	}
+	// Auto-detect from content
+	trimmed := strings.TrimSpace(body)
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		return "language-json"
+	}
+	if strings.HasPrefix(trimmed, "<") {
+		return "language-xml"
+	}
+	return "language-plaintext"
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}

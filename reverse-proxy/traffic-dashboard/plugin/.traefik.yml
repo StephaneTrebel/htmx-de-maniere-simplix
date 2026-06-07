@@ -1,0 +1,7 @@
+displayName: Traffic Capture
+type: middleware
+import: github.com/htmx-de-maniere-simplix/trafficcapture
+summary: Captures HTTP request/response metadata and forwards it to the traffic dashboard collector.
+testData:
+  collectorURL: "http://traffic-dashboard:8765"
+  maxBodySize: 32768

@@ -2,10 +2,14 @@
 # Stack Conduit — step-01-go-hda-proxy
 #
 # URL unique : http://localhost:1337
+# Traffic Dashboard : http://localhost:8765
 #
 # Routing Traefik (par PathPrefix, ordre de priorité) :
 #   /hda/*   →  Go HDA backend   (fragments HTML servis par Go + templ)
 #   /*       →  SPA Preact        (shell JS, routing client-side)
+#
+# Le middleware `capture` (plugin trafficcapture) intercepte toutes les
+# requêtes et les transmet au collecteur traffic-dashboard sur :8765/ingest.
 #
 # Démarrage :
 #   docker compose up --build
@@ -30,8 +34,35 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traffic-dashboard/plugin:/plugins-local/src/github.com/htmx-de-maniere-simplix/trafficcapture:ro
     networks:
       - conduit-net
+
+  # ── Traffic Dashboard ──────────────────────────────────────────────────────
+  # Collecteur d'événements + UI live. Alimenté par le plugin Traefik.
+  # Les labels définissent aussi le middleware `capture` utilisé par les routers.
+  traffic-dashboard:
+    build:
+      context: ./traffic-dashboard/collector
+      dockerfile: Dockerfile
+    container_name: traffic-dashboard
+    restart: unless-stopped
+    ports:
+      - "8765:8765"   # UI + API + SSE + endpoint /ingest
+    networks:
+      - conduit-net
+    labels:
+      - "traefik.enable=true"
+      # Middleware capture pour le router hda
+      - "traefik.http.middlewares.capture-hda.plugin.trafficcapture.collectorURL=http://traffic-dashboard:8765"
+      - "traefik.http.middlewares.capture-hda.plugin.trafficcapture.maxBodySize=32768"
+      - "traefik.http.middlewares.capture-hda.plugin.trafficcapture.routerName=hda"
+      - "traefik.http.middlewares.capture-hda.plugin.trafficcapture.serviceName=hda"
+      # Middleware capture pour le router spa
+      - "traefik.http.middlewares.capture-spa.plugin.trafficcapture.collectorURL=http://traffic-dashboard:8765"
+      - "traefik.http.middlewares.capture-spa.plugin.trafficcapture.maxBodySize=32768"
+      - "traefik.http.middlewares.capture-spa.plugin.trafficcapture.routerName=spa"
+      - "traefik.http.middlewares.capture-spa.plugin.trafficcapture.serviceName=spa"
 
   # ── Backend Go HDA ─────────────────────────────────────────────────────────
   # Sert uniquement les fragments HTML sur /hda/*.
@@ -49,10 +80,11 @@ services:
     labels:
       - "traefik.enable=true"
       # Route prioritaire : /hda/* → Go
-      - "traefik.http.routers.go-hda.rule=PathPrefix(`/hda/`)"
-      - "traefik.http.routers.go-hda.entrypoints=app"
-      - "traefik.http.routers.go-hda.priority=10"
-      - "traefik.http.services.go-hda.loadbalancer.server.port=3000"
+      - "traefik.http.routers.hda.rule=PathPrefix(`/hda/`)"
+      - "traefik.http.routers.hda.entrypoints=app"
+      - "traefik.http.routers.hda.priority=10"
+      - "traefik.http.services.hda.loadbalancer.server.port=3000"
+      - "traefik.http.routers.hda.middlewares=capture-hda@docker"
 
   # ── SPA Preact ─────────────────────────────────────────────────────────────
   # Sert le shell HTML + JS, catch-all sur toutes les autres routes.
@@ -71,3 +103,5 @@ services:
       - "traefik.http.routers.spa.entrypoints=app"
       - "traefik.http.routers.spa.priority=1"
       - "traefik.http.services.spa.loadbalancer.server.port=5173"
+      - "traefik.http.routers.spa.middlewares=capture-spa@docker"
+
