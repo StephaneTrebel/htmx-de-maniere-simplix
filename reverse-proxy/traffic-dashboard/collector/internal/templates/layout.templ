@@ -1,0 +1,275 @@
+package templates
+
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="dark">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.min.css"/>
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/github-dark.min.css"/>
+			<style>
+				*, *::before, *::after { box-sizing: border-box; }
+				html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+
+				.dashboard { display: flex; flex-direction: column; height: 100vh; }
+
+				/* ── Header & filters ─────────────────────────────────────── */
+				.dashboard-header {
+					display: flex;
+					align-items: center;
+					gap: 0.75rem;
+					padding: 0.35rem 0.75rem;
+					border-bottom: 1px solid var(--pico-border-color);
+					flex-shrink: 0;
+				}
+				.dashboard-header h1 {
+					margin: 0;
+					font-size: 1rem;
+					white-space: nowrap;
+					font-weight: 700;
+				}
+
+				/* Override PicoCSS aggressive input sizing */
+				.filters {
+					display: flex;
+					gap: 0.4rem;
+					flex: 1;
+					align-items: center;
+				}
+				.filters input[type="text"],
+				.filters select {
+					margin: 0;
+					padding: 0.2rem 0.4rem;
+					font-size: 0.75rem;
+					height: 1.75rem;
+					line-height: 1;
+					border-radius: 4px;
+					border: 1px solid var(--pico-border-color);
+					background: var(--pico-background-color);
+					color: var(--pico-color);
+					min-width: 0;
+					flex: 1;
+				}
+				.filters select { flex: 0.7; }
+
+				.reset-btn {
+					margin: 0;
+					padding: 0.2rem 0.7rem;
+					font-size: 0.75rem;
+					height: 1.75rem;
+					line-height: 1;
+					border-radius: 4px;
+					white-space: nowrap;
+					cursor: pointer;
+					background: var(--pico-primary-background);
+					color: var(--pico-primary-inverse);
+					border: 1px solid var(--pico-primary-border);
+					flex-shrink: 0;
+				}
+				.reset-btn:hover { opacity: 0.85; }
+
+				/* ── Grid layout ──────────────────────────────────────────── */
+				.dashboard-grid {
+					display: grid;
+					grid-template-columns: 32% 1fr;
+					flex: 1;
+					overflow: hidden;
+				}
+
+				/* ── Timeline panel ───────────────────────────────────────── */
+				.panel-timeline {
+					border-right: 1px solid var(--pico-border-color);
+					display: flex;
+					flex-direction: column;
+					overflow: hidden;
+				}
+				.panel-timeline h2 {
+					margin: 0;
+					padding: 0.4rem 0.75rem;
+					font-size: 0.7rem;
+					text-transform: uppercase;
+					letter-spacing: 0.08em;
+					color: var(--pico-muted-color);
+					border-bottom: 1px solid var(--pico-border-color);
+					flex-shrink: 0;
+				}
+				#timeline-list {
+					overflow-y: auto;
+					flex: 1;
+				}
+
+				/* ── Detail panels ────────────────────────────────────────── */
+				.panel-detail {
+					overflow-y: auto;
+				}
+				.panel-routing {
+					padding: 0.6rem 0.85rem;
+					border-bottom: 1px solid var(--pico-border-color);
+				}
+				.panel-payload {
+					padding: 0.6rem 0.85rem;
+				}
+				.panel-routing h2 {
+					margin: 0 0 0.4rem 0;
+					font-size: 0.7rem;
+					font-weight: 700;
+					text-transform: uppercase;
+					letter-spacing: 0.08em;
+					color: var(--pico-muted-color);
+				}
+				.panel-routing dl {
+					display: grid;
+					grid-template-columns: auto 1fr;
+					gap: 0.2rem 0.75rem;
+					margin: 0;
+					font-size: 0.8rem;
+				}
+				.panel-routing dt { color: var(--pico-muted-color); white-space: nowrap; }
+				.panel-routing dd { margin: 0; font-family: monospace; word-break: break-all; }
+
+				.empty-state { color: var(--pico-muted-color); font-size: 0.85rem; padding: 0.75rem 0; }
+
+				/* ── Timeline row ─────────────────────────────────────────── */
+				.timeline-row {
+					display: grid;
+					grid-template-columns: 5rem 3.5rem 1fr auto;
+					gap: 0.35rem;
+					align-items: center;
+					padding: 0.35rem 0.75rem;
+					border-bottom: 1px solid var(--pico-border-color);
+					cursor: pointer;
+					font-size: 0.78rem;
+					transition: background 0.1s;
+				}
+				.timeline-row:hover { background: var(--pico-secondary-hover-background); }
+				.timeline-row.active { background: var(--pico-primary-background); }
+
+				.time { color: var(--pico-muted-color); font-family: monospace; font-size: 0.72rem; }
+				.path { font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+				.badges { display: flex; gap: 0.2rem; justify-content: flex-end; }
+
+				/* ── Badges ───────────────────────────────────────────────── */
+				.badge {
+					padding: 0.1rem 0.35rem;
+					border-radius: 3px;
+					font-size: 0.65rem;
+					font-weight: 700;
+					font-family: monospace;
+					white-space: nowrap;
+					line-height: 1.5;
+				}
+				/* HTTP method */
+				.badge-get    { background: #1565C0; color: #fff; }
+				.badge-post   { background: #2E7D32; color: #fff; }
+				.badge-put    { background: #E65100; color: #fff; }
+				.badge-delete { background: #B71C1C; color: #fff; }
+				.badge-patch  { background: #6A1B9A; color: #fff; }
+				.badge-other  { background: #37474F; color: #fff; }
+
+				/* Content type */
+				.badge-json { background: #1565C0; color: #fff; }
+				.badge-html { background: #2E7D32; color: #fff; }
+				.badge-htmx { background: #6A1B9A; color: #fff; }
+				.badge-js   { background: #F9A825; color: #000; }
+				.badge-css  { background: #00838F; color: #fff; }
+				.badge-img  { background: #546E7A; color: #fff; }
+				.badge-font { background: #4527A0; color: #fff; }
+				.badge-text { background: #37474F; color: #fff; }
+
+				/* HTTP status */
+				.badge-2xx { background: #2E7D32; color: #fff; }
+				.badge-3xx { background: #1565C0; color: #fff; }
+				.badge-4xx { background: #E65100; color: #fff; }
+				.badge-5xx { background: #B71C1C; color: #fff; }
+				.badge-xxx { background: #37474F; color: #fff; }
+
+				/* ── Payload ──────────────────────────────────────────────── */
+				.payload-section h3 {
+					font-size: 0.7rem;
+					text-transform: uppercase;
+					letter-spacing: 0.08em;
+					color: var(--pico-muted-color);
+					margin: 0.6rem 0 0.2rem 0;
+				}
+				.payload-section:first-child h3 { margin-top: 0; }
+				.payload-section pre {
+					margin: 0;
+					font-size: 0.72rem;
+					border-radius: 4px;
+					white-space: pre-wrap;
+					overflow-wrap: break-word;
+					word-break: break-all;
+				}
+				.payload-section pre code {
+					padding: 0.5rem !important;
+					white-space: pre-wrap !important;
+					overflow-wrap: break-word !important;
+					word-break: break-all !important;
+				}
+				.payload-empty { color: var(--pico-muted-color); font-size: 0.78rem; font-style: italic; margin: 0; }
+
+				/* ── Headers details/summary ─────────────────────────────── */
+				details.headers-details {
+					margin-top: 0.6rem;
+				}
+				details.headers-details summary {
+					font-size: 0.7rem;
+					font-weight: 700;
+					text-transform: uppercase;
+					letter-spacing: 0.08em;
+					color: var(--pico-muted-color);
+					cursor: pointer;
+					list-style: none;
+					display: flex;
+					align-items: center;
+					user-select: none;
+					padding: 0;
+					margin: 0;
+					text-decoration: none !important;
+					outline: none;
+				}
+				details.headers-details summary::-webkit-details-marker { display: none; }
+				details.headers-details summary::marker { content: none; }
+
+				/* ── Headers table ────────────────────────────────────────── */
+				.headers-scroll {
+					margin-top: 0.3rem;
+					border-radius: 3px;
+					border: 1px solid var(--pico-border-color);
+				}
+				.headers-table { font-size: 0.72rem; width: 100%; margin: 0; }
+				.headers-table td:first-child {
+					color: var(--pico-muted-color);
+					white-space: nowrap;
+					padding: 0.15rem 0.5rem 0.15rem 0.4rem;
+					font-family: monospace;
+					vertical-align: top;
+				}
+				.headers-table td:last-child {
+					font-family: monospace;
+					word-break: break-all;
+					padding: 0.15rem 0.4rem 0.15rem 0;
+				}
+			</style>
+		</head>
+		<body>
+			{ children... }
+			<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+			<script src="https://unpkg.com/htmx-ext-sse@2.2.3/sse.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/json.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/xml.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/css.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/javascript.min.js"></script>
+			<script>
+				function highlightAll() {
+					document.querySelectorAll('pre code:not(.hljs)').forEach(el => hljs.highlightElement(el));
+				}
+				document.addEventListener('htmx:afterSwap', highlightAll);
+				document.addEventListener('DOMContentLoaded', highlightAll);
+			</script>
+		</body>
+	</html>
+}
