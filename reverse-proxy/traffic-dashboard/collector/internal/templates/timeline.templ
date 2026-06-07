@@ -1,0 +1,204 @@
+package templates
+
+import (
+	"fmt"
+	"strings"
+	"strconv"
+	"traffic-dashboard/internal/model"
+)
+
+// Index renders the full dashboard page.
+templ Index(events []*model.Event) {
+	@Layout("Traffic Dashboard") {
+		<div class="dashboard">
+			<header class="dashboard-header">
+				<h1>Traffic Dashboard</h1>
+				<form
+					class="filters"
+					hx-get="/ui/timeline"
+					hx-target="#timeline-list"
+					hx-trigger="change, input delay:400ms from:input[type=text]"
+					hx-swap="innerHTML"
+				>
+					<input type="text" name="route" placeholder="Filter route…" autocomplete="off"/>
+					<input type="text" name="service" placeholder="Filter service…" autocomplete="off"/>
+					<select name="contentType">
+						<option value="">All types</option>
+						<option value="htmx">HTMX</option>
+						<option value="html">HTML</option>
+						<option value="json">JSON</option>
+						<option value="js">JS</option>
+						<option value="css">CSS</option>
+						<option value="img">IMG</option>
+						<option value="font">FONT</option>
+						<option value="text">TEXT</option>
+					</select>
+					<select name="statusCode">
+						<option value="0">All statuses</option>
+						<option value="200">200</option>
+						<option value="201">201</option>
+						<option value="204">204</option>
+						<option value="301">301</option>
+						<option value="302">302</option>
+						<option value="304">304</option>
+						<option value="400">400</option>
+						<option value="401">401</option>
+						<option value="403">403</option>
+						<option value="404">404</option>
+						<option value="500">500</option>
+					</select>
+				</form>
+				<button
+					type="button"
+					class="reset-btn"
+					hx-post="/ui/clear"
+					hx-target="#timeline-list"
+					hx-swap="innerHTML"
+				>Reset</button>
+			</header>
+			<div class="dashboard-grid">
+				<section class="panel-timeline">
+					<h2>Timeline</h2>
+					<div
+						id="timeline-list"
+						hx-ext="sse"
+						sse-connect="/events"
+						sse-swap="newRequest"
+						hx-swap="afterbegin"
+					>
+						for _, e := range events {
+							@EventRow(e)
+						}
+					</div>
+				</section>
+				<div id="detail-container" class="panel-detail">
+					@EmptyDetail()
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// EventRow renders a single timeline entry.
+// Used both in the initial page render and in SSE broadcasts.
+templ EventRow(e *model.Event) {
+	<div
+		class="timeline-row"
+		hx-get={ fmt.Sprintf("/ui/event/%s", e.ID) }
+		hx-target="#detail-container"
+		hx-swap="innerHTML"
+	>
+		<span class="time">{ e.Timestamp.Format("15:04:05") }</span>
+		<span class={ "badge", methodBadgeClass(e.Request.Method) }>{ e.Request.Method }</span>
+		<span class="path" title={ e.Request.Path + queryStr(e.Request.Query) }>{ e.Request.Path }</span>
+		<span class="badges">
+			<span class={ "badge", ctBadgeClass(e) }>{ ctLabel(e) }</span>
+			<span class={ "badge", statusBadgeClass(e.Response.StatusCode) }>{ strconv.Itoa(e.Response.StatusCode) }</span>
+		</span>
+	</div>
+}
+
+// TimelineList renders only the list of rows (used for HTMX filter updates).
+templ TimelineList(events []*model.Event) {
+	for _, e := range events {
+		@EventRow(e)
+	}
+}
+
+// EmptyDetail shows the placeholder state for both detail panels.
+templ EmptyDetail() {
+	<div class="panel-routing">
+		<h2>Routing</h2>
+		<p class="empty-state">← Select a request</p>
+	</div>
+	<div class="panel-payload">
+		<p class="empty-state">← Select a request</p>
+	</div>
+}
+
+func methodBadgeClass(method string) string {
+	switch strings.ToUpper(method) {
+	case "GET":
+		return "badge-get"
+	case "POST":
+		return "badge-post"
+	case "PUT":
+		return "badge-put"
+	case "DELETE":
+		return "badge-delete"
+	case "PATCH":
+		return "badge-patch"
+	default:
+		return "badge-other"
+	}
+}
+
+func statusBadgeClass(code int) string {
+	switch {
+	case code >= 200 && code < 300:
+		return "badge-2xx"
+	case code >= 300 && code < 400:
+		return "badge-3xx"
+	case code >= 400 && code < 500:
+		return "badge-4xx"
+	case code >= 500:
+		return "badge-5xx"
+	default:
+		return "badge-xxx"
+	}
+}
+
+func ctBadgeClass(e *model.Event) string {
+	if e.Request.IsHTMX {
+		return "badge-htmx"
+	}
+	ct := strings.ToLower(e.Response.ContentType)
+	switch {
+	case strings.Contains(ct, "json"):
+		return "badge-json"
+	case strings.Contains(ct, "html"):
+		return "badge-html"
+	case strings.Contains(ct, "javascript"):
+		return "badge-js"
+	case strings.Contains(ct, "css"):
+		return "badge-css"
+	case strings.HasPrefix(ct, "image/"):
+		return "badge-img"
+	case strings.HasPrefix(ct, "font/"), strings.Contains(ct, "font"):
+		return "badge-font"
+	default:
+		return "badge-text"
+	}
+}
+
+func ctLabel(e *model.Event) string {
+	if e.Request.IsHTMX {
+		return "HTMX"
+	}
+	ct := strings.ToLower(e.Response.ContentType)
+	switch {
+	case strings.Contains(ct, "json"):
+		return "JSON"
+	case strings.Contains(ct, "html"):
+		return "HTML"
+	case strings.Contains(ct, "javascript"):
+		return "JS"
+	case strings.Contains(ct, "css"):
+		return "CSS"
+	case strings.HasPrefix(ct, "image/svg"):
+		return "SVG"
+	case strings.HasPrefix(ct, "image/"):
+		return "IMG"
+	case strings.HasPrefix(ct, "font/"), strings.Contains(ct, "font"):
+		return "FONT"
+	default:
+		return "TEXT"
+	}
+}
+
+func queryStr(q string) string {
+	if q == "" {
+		return ""
+	}
+	return "?" + q
+}

@@ -1,2 +1,3 @@
 .agents
 **/.env
+**/traffic-dashboard/collector/traffic-dashboard
