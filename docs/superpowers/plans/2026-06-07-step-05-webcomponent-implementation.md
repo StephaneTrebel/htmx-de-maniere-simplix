@@ -10,13 +10,14 @@
 
 ---
 
-**Resume State, 2026-06-07 late session:**
+**Resume State, 2026-06-07 stop point:**
 
 - Worktree: `/home/stephane/.config/superpowers/worktrees/htmx-de-maniere-simplix/step-05-webcomponent` on branch `step-05-webcomponent`.
-- Completed: Task 1 API client methods, including RED then GREEN for `cd go-hda-backend && go test ./internal/api`.
-- In progress next: Task 2, Step 1: write failing template render tests for `ArticleMeta`. No Task 2 files have been created yet.
-- Not started: handlers/routes, SPA Lit integration, docs update, full validation.
-- Last known verification before pause: `go test ./internal/api` passed after Task 1 implementation.
+- Completed and committed before this stop: Task 1 API client methods, including RED then GREEN for `cd go-hda-backend && go test ./internal/api`.
+- Current WIP: Task 2, Step 1 started. `go-hda-backend/internal/templates/article_meta_test.go` has been created but the first RED run failed on a test syntax issue, not on the expected missing `ArticleMeta` symbol.
+- Exact next action: fix the multiline `t.Fatalf` strings in `assertContains` and `assertNotContains` to use escaped newlines (`\n`), then run `cd go-hda-backend && go test ./internal/templates` again. Expected RED after that: `ArticleMeta` and `ArticleMetaPair` undefined.
+- Not started: `article_meta.templ`, generated templ file, handlers/routes, SPA Lit integration, docs update, full validation.
+- Latest verification before Task 2 WIP: `go test -count=1 ./internal/api` passed.
 
 ---
 
