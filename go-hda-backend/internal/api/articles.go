@@ -34,3 +34,44 @@ func (c *Client) GetProfileArticles(page int, username, articleType string) ([]A
 	}
 	return resp.Articles, resp.ArticlesCount, nil
 }
+
+// GetArticle retourne un article par slug.
+func (c *Client) GetArticle(slug string) (Article, error) {
+	path := "/articles/" + url.PathEscape(slug)
+
+	var resp ArticleResponse
+	if err := c.do("GET", path, nil, &resp); err != nil {
+		return Article{}, err
+	}
+	return resp.Article, nil
+}
+
+// FavoriteArticle ajoute l'article aux favoris de l'utilisateur authentifié.
+func (c *Client) FavoriteArticle(slug string) error {
+	path := "/articles/" + url.PathEscape(slug) + "/favorite"
+	return c.do("POST", path, nil, nil)
+}
+
+// UnfavoriteArticle retire l'article des favoris de l'utilisateur authentifié.
+func (c *Client) UnfavoriteArticle(slug string) error {
+	path := "/articles/" + url.PathEscape(slug) + "/favorite"
+	return c.do("DELETE", path, nil, nil)
+}
+
+// DeleteArticle supprime un article par slug.
+func (c *Client) DeleteArticle(slug string) error {
+	path := "/articles/" + url.PathEscape(slug)
+	return c.do("DELETE", path, nil, nil)
+}
+
+// FollowProfile suit un profil.
+func (c *Client) FollowProfile(username string) error {
+	path := "/profiles/" + url.PathEscape(username) + "/follow"
+	return c.do("POST", path, nil, nil)
+}
+
+// UnfollowProfile cesse de suivre un profil.
+func (c *Client) UnfollowProfile(username string) error {
+	path := "/profiles/" + url.PathEscape(username) + "/follow"
+	return c.do("DELETE", path, nil, nil)
+}

@@ -35,6 +35,11 @@ type ArticlesResponse struct {
 	ArticlesCount int       `json:"articlesCount"`
 }
 
+// ArticleResponse est la réponse des endpoints qui retournent un article unique.
+type ArticleResponse struct {
+	Article Article `json:"article"`
+}
+
 // Comment représente un commentaire sur un article.
 type Comment struct {
 	ID        int    `json:"id"`
