@@ -1899,14 +1899,6 @@ footer .attribution {
     text-decoration: underline
 }
 
-.home-page .banner h1 {
-    font-weight: 700;
-    text-align: center;
-    font-size: 3.5rem;
-    line-height: 1.1;
-    padding-bottom: .5rem
-}
-
 .home-page .feed-toggle {
     margin-bottom: -1px
 }
