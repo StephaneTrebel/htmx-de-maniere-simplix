@@ -37,16 +37,18 @@ export default function App() {
 	);
 }
 
-// Injecte le JWT Zustand dans chaque requête HTMX, sans exposer le token dans le DOM.
-// htmx:configRequest se déclenche juste avant l'envoi — le token est lu en mémoire à ce moment.
-document.addEventListener('htmx:configRequest', (e) => {
-	const token = useStore.getState().user?.token;
-	if (token) {
-		e.detail.headers['Authorization'] = `Token ${token}`;
-	}
-});
+if (typeof window !== 'undefined') {
+	// Injecte le JWT Zustand dans chaque requête HTMX, sans exposer le token dans le DOM.
+	// htmx:configRequest se déclenche juste avant l'envoi — le token est lu en mémoire à ce moment.
+	document.addEventListener('htmx:configRequest', e => {
+		const token = useStore.getState().user?.token;
+		if (token) {
+			e.detail.headers['Authorization'] = `Token ${token}`;
+		}
+	});
 
-hydrate(<App />);
+	hydrate(<App />);
+}
 
 export async function prerender() {
 	const { default: prerender } = await import('preact-iso/prerender');
