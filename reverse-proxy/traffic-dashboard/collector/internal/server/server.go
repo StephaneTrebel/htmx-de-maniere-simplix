@@ -149,7 +149,7 @@ func (s *Server) handleUIClear(c echo.Context) error {
 	)
 }
 
-// handleUITimeline returns a filtered timeline list (used by filter form).
+// handleUITimeline returns a filtered timeline list + resets the detail panel (OOB).
 func (s *Server) handleUITimeline(c echo.Context) error {
 	statusCode := 0
 	fmt.Sscanf(c.QueryParam("statusCode"), "%d", &statusCode)
@@ -160,7 +160,21 @@ func (s *Server) handleUITimeline(c echo.Context) error {
 		StatusCode:  statusCode,
 	}
 	events := filter.Apply(s.rb.All(), params)
-	return renderTempl(c, templates.TimelineList(events))
+
+	var timeline bytes.Buffer
+	if err := templates.TimelineList(events).Render(c.Request().Context(), &timeline); err != nil {
+		return err
+	}
+
+	var oob bytes.Buffer
+	if err := templates.EmptyDetail().Render(c.Request().Context(), &oob); err != nil {
+		oob.Reset()
+	}
+
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	return c.String(http.StatusOK,
+		timeline.String()+`<div id="detail-container" hx-swap-oob="innerHTML">`+oob.String()+`</div>`,
+	)
 }
 
 func renderTempl(c echo.Context, component templ.Component) error {
