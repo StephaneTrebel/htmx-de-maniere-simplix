@@ -16,3 +16,10 @@ providers:
 
 log:
   level: INFO
+
+# Plugin local : traffic capture middleware
+# Le code source est monté depuis ./traffic-dashboard/plugin/
+experimental:
+  localPlugins:
+    trafficcapture:
+      moduleName: github.com/htmx-de-maniere-simplix/trafficcapture

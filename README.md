@@ -43,7 +43,7 @@ flowchart LR
   <div hx-get="/hda/tags" hx-trigger="load" hx-swap="outerHTML" />
   ```
 - Le résultat dans le DOM est identique. L'utilisateur ne voit aucune différence.
-- La communication entre les fragments Go et le JS Preact restant se fait via des **événements DOM custom** — pas de couplage direct.
+- La communication entre le HTML Go et le JS Preact restant se fait via des **événements DOM custom** — pas de couplage direct.
 
 ---
 
@@ -147,12 +147,15 @@ Ouvrir : **http://localhost:1337**
 |-----|---------|
 | **http://localhost:1337** | Application (SPA + fragments Go, URL unique) |
 | http://localhost:8080 | Dashboard Traefik |
+| **http://localhost:8765** | Traffic Dashboard (visualisation live des requêtes) |
 
 Pour vérifier que la migration fonctionne : ouvrez l'onglet **Réseau** du navigateur et rechargez la page. Vous verrez une requête `GET /hda/tags` qui retourne du **HTML**, pas du JSON. La sidebar des tags populaires est servie par Go.
 
+Pour visualiser les échanges HTTP en temps réel : ouvrez **http://localhost:8765** et naviguez dans l'application.
+
 #### Mode développement (sans Docker)
 
-> ⚠️ En mode dev sans Traefik, le `hx-get="/hda/tags"` nécessite une configuration du proxy WMR
+> ⚠️ En mode dev sans Traefik, le `hx-get="/hda/tags"` nécessite une configuration du proxy Vite
 > pour rediriger `/hda/*` vers `localhost:3000`. Utiliser la stack Docker est plus simple.
 
 **Terminal 1 — Backend Go :**
@@ -169,175 +172,54 @@ npm ci && npm run start   # http://localhost:8080
 
 ---
 
-### `step-02-article-feed` — fil d'articles migré vers Go + HTMX
+## Traffic Dashboard
 
-```bash
-git checkout step-02-article-feed
+Le Traffic Dashboard est un outil de démo conçu pour visualiser les échanges HTTP en direct pendant les conférences et ateliers. Il rend immédiatement lisible :
+
+- quelle route a été appelée
+- quel service Traefik l'a traitée
+- si la réponse est JSON (SPA) ou HTML (HTMX/HDA)
+- les headers, query params et body complets
+
+> Documentation complète : [reverse-proxy/traffic-dashboard/README.md](reverse-proxy/traffic-dashboard/README.md)
+
+### Accès à l'interface
+
+Une fois la stack lancée (`docker compose up --build` dans `reverse-proxy/`) :
+
+**http://localhost:8765**
+
+L'interface s'ouvre directement sur le tableau de bord en temps réel. Elle se met à jour automatiquement à chaque requête transitant par Traefik — aucune action manuelle n'est nécessaire.
+
+### Architecture
+
+```
+Traefik Plugin        →    Go Collector      →    UI HTMX
+(sonde passive)            (ring buffer 500)       (3 panneaux)
+  POST /ingest              SSE /events             localhost:8765
 ```
 
-#### Ce qui a changé par rapport à step-01
+Le plugin Traefik est une **sonde passive** : il intercepte req/resp et les transmet au collecteur via POST. Il n'expose aucun endpoint. Le collecteur Go reçoit, stocke et diffuse via SSE. L'UI se met à jour en temps réel.
 
-| | step-01-go-hda-proxy | step-02-article-feed |
-|---|---|---|
-| PopularTags sidebar | Fragment HTML Go | Fragment HTML Go (inchangé) |
-| Fil d'articles | Rendu Preact (useEffect + appel API JSON) | Fragment HTML Go |
-| Pagination | Composant Preact `<Pagination>` | Rendue dans le fragment Go |
-| Onglets (Global Feed / # tag) | Gérés par état Preact | Rendus dans le fragment Go |
-| States dans Home.tsx | 6 (articles, articlesCount, isLoading, page, currentActiveTab, tag) | 1 (isAuthenticated) |
-| `useEffect` fetchFeeds | Présent | Supprimé |
-| `useEffect` conduit:tag | `setState` Preact | `htmx.ajax()` — pont 6 lignes |
-| Route Go ajoutée | — | `GET /hda/articles?tab&tag&page` |
+### Interface
 
-#### Concept introduit : fragment auto-rafraîchissant
+Trois panneaux côte à côte :
 
-En step-01, le fragment PopularTags était chargé une fois au montage et ne changeait plus.
+| Timeline | Routing | Payload |
+|----------|---------|---------|
+| Liste chronologique des requêtes | Router · Service · Middleware · Status · Durée | Body req + resp avec coloration syntaxique |
+| Cliquer pour sélectionner | Headers request/response dépliables | Highlight.js (JSON / HTML / CSS / JS) |
 
-En step-02, le fragment ArticleFeed se recharge lui-même : les boutons de pagination et les onglets de navigation contiennent leur propre `hx-get` qui remplace le fragment en place (`hx-swap="outerHTML"`). Le `id="article-feed"` est présent dans chaque réponse Go, ce qui permet à HTMX de toujours trouver la cible.
+### Filtres disponibles
 
-```mermaid
-flowchart TD
-    A["🌐 Chargement de la page\nhx-trigger='load'"]
-    B["GET /hda/articles?tab=global&page=1"]
-    C["🐹 Go → fragment ArticleFeed\ntabs + articles + pagination\n(id='article-feed')"]
-    D["🖱️ Clic pagination\nhx-get='/hda/articles?tab=global&page=2'\nhx-target='#article-feed'"]
-    E["🐹 Go → fragment ArticleFeed page 2"]
-    F["🖱️ Clic tag (sidebar PopularTags)"]
-    G["CustomEvent('conduit:tag', { detail: 'react' })"]
-    H["Home.tsx — pont JS\nhtmx.ajax('GET', '/hda/articles?tab=tag&tag=react&page=1')"]
-    I["🐹 Go → fragment ArticleFeed filtré par tag"]
+| Filtre | Exemple | Description |
+|--------|---------|-------------|
+| Route | `/hda/` | Préfixe du chemin |
+| Service | `hda` | Nom du service Traefik |
+| Type | `htmx`, `html`, `json`, `js`, `css`, `img`, `font`, `text` | Type de contenu de la réponse |
+| Status | `200`, `404`, … | Code HTTP exact |
 
-    A --> B --> C
-    C --> D --> E
-    F --> G --> H --> I
-```
-
-**Pourquoi un pont JS pour `conduit:tag` ?**
-
-HTMX ne peut pas lire `event.detail` pour construire une URL dynamique. Les six lignes de `Home.tsx` servent de traducteur entre l'événement DOM (dispatché par le fragment PopularTags) et l'appel `htmx.ajax()` avec l'URL correcte. C'est le seul JavaScript qui reste pour gérer le fil d'articles.
-
-**Pourquoi `htmx.process()` au montage du composant ?**
-
-HTMX scanne les attributs `hx-*` au chargement initial de la page (`DOMContentLoaded`). Mais dans une SPA, quand l'utilisateur navigue vers `/article/xxx` puis revient sur `/`, Preact recrée le `<div id="article-feed" hx-trigger="load">` dans le DOM — HTMX ne le voit pas et `hx-trigger="load"` ne se déclenche jamais. Appeler `htmx.process(el)` dans le `useEffect` de montage résout ce problème : il signale à HTMX que cet élément doit être traité, ce qui déclenche immédiatement le `hx-get`.
-
-#### Mode stack complète (Docker + Traefik) — recommandé
-
-```bash
-cd reverse-proxy
-cp .env.example .env
-docker compose up --build
-```
-
-Ouvrir : **http://localhost:1337**
-
-Pour vérifier la migration : onglet **Réseau** du navigateur → rechargez la page → vous verrez deux requêtes HTML :
-- `GET /hda/tags` → sidebar des tags (step-01)
-- `GET /hda/articles?tab=global&page=1` → fil d'articles (step-02)
-
-Cliquez sur un bouton de pagination : nouvelle requête `GET /hda/articles?tab=global&page=N` — pas de JavaScript Preact impliqué.
-
-Cliquez sur un tag dans la sidebar : requête `GET /hda/articles?tab=tag&tag=NOM_DU_TAG&page=1`.
-
----
-
-### `step-03-profile` — articles de profil migrés vers Go + HTMX
-
-```bash
-git checkout step-03-profile
-```
-
-#### Ce qui a changé par rapport à step-02
-
-| | step-02-article-feed | step-03-profile |
-|---|---|---|
-| Articles de profil | Rendu Preact (useEffect + apiGetArticles) | Fragment HTML Go |
-| Onglets My Articles / Favorited | Gérés par URL Preact + état | Rendus dans le fragment Go |
-| Pagination profil | Composant Preact `<Pagination>` | Rendue dans le fragment Go |
-| States dans Profile.tsx | 5 | 1 (user — pour le header) |
-| Route Go ajoutée | — | `GET /hda/profile/articles?username&type&page` |
-
-#### Nouveau concept : fragment paramétré par une route Preact
-
-En step-02, le fragment chargeait des paramètres issus d'un état interne (tag sélectionné, page).
-
-En step-03, le fragment est paramétré par un **identifiant de ressource externe** : le `username` vient du routeur Preact (`/:username`), et le type d'onglet est déduit de l'URL (`/@username` vs `/@username/favorites`). `Profile.tsx` sert de pont :
-
-```mermaid
-flowchart TD
-    A["🌐 Navigation vers /@username"]
-    B["Profile.tsx — useEffect url+username\ntype = url.includes('favorites') ? 'favorited' : 'author'\nhtmx.ajax('/hda/profile/articles?username=...&type=...')"]
-    C["🐹 Go → ProfileArticlesFeed\ntabs + articles + pagination\n(id='profile-articles')"]
-    D["🖱️ Clic onglet / pagination\nhx-get='...'\nhx-target='#profile-articles'"]
-    E["🐹 Go → ProfileArticlesFeed rechargé"]
-
-    A --> B --> C --> D --> E
-```
-
-#### Mode stack complète (Docker + Traefik) — recommandé
-
-```bash
-cd reverse-proxy
-cp .env.example .env
-docker compose up --build
-```
-
-Ouvrir : **http://localhost:1337** puis naviguer vers le profil d'un utilisateur (cliquer sur un auteur d'article).
-
-Pour vérifier la migration : onglet **Réseau** → naviguez vers un profil → vous verrez `GET /hda/profile/articles?username=...&type=author&page=1`. Cliquez sur "Favorited Articles" dans le fragment → nouvelle requête avec `type=favorited`, sans rechargement de page.
-
----
-
-### `step-04-comments` — commentaires migrés vers Go + HTMX
-
-```bash
-git checkout step-04-comments
-```
-
-#### Ce qui a changé par rapport à step-03
-
-| | step-03-profile | step-04-comments |
-|---|---|---|
-| Commentaires (liste) | Rendu Preact (`{comments.map(...)}`) | Fragment HTML Go |
-| Formulaire ajout | Preact (`onSubmit → apiCreateComment`) | `hx-post` Go |
-| Bouton supprimer | Preact (`onClick → apiDeleteComment`) | `hx-delete` Go |
-| States dans Article.tsx | 4 (article, comments, commentBody, isLoading) | 2 (article, isLoading) |
-| JWT transmis à Go | — | `hx-headers` injecté par Preact, hérité par form et boutons |
-| Verbes HTTP HTMX | GET uniquement | GET + POST + DELETE |
-| Routes Go ajoutées | — | `GET/POST /hda/articles/:slug/comments` + `DELETE /hda/articles/:slug/comments/:id` |
-
-#### Nouveau concept : écriture via HTMX + propagation du JWT
-
-Les trois steps précédents n'utilisaient que `hx-get`. Ce step introduit les mutations.
-
-Le JWT vit dans le store Zustand de Preact. Il est injecté **une seule fois** sur le div conteneur via `hx-headers`. Tous les éléments Go à l'intérieur — le formulaire `hx-post`, les boutons `hx-delete` — l'héritent automatiquement.
-
-La clé : `hx-swap="innerHTML"` au lieu de `outerHTML`. Avec `outerHTML`, le div disparaît à chaque réponse et emporte ses `hx-headers` avec lui. Avec `innerHTML`, il reste en place.
-
-```mermaid
-flowchart TD
-    A["🌐 Navigation vers /article/slug"]
-    B["Article.tsx — fetch article\nhtmx.process(commentsRef)"]
-    C["🐹 Go → CommentsFeed\nformulaire + liste\n(innerHTML de #comments)"]
-    D["📝 Submit formulaire\nhx-post → JWT hérité"]
-    E["🐹 Go → CreateComment\n→ GetComments → CommentsFeed"]
-    F["🗑️ Clic supprimer\nhx-delete → JWT hérité"]
-    G["🐹 Go → DeleteComment\n→ GetComments → CommentsFeed"]
-
-    A --> B --> C
-    C --> D --> E
-    C --> F --> G
-```
-
-#### Mode stack complète (Docker + Traefik) — recommandé
-
-```bash
-cd reverse-proxy
-cp .env.example .env
-docker compose up --build
-```
-
-Ouvrir : **http://localhost:1337** puis cliquer sur un article.
-
-Pour vérifier la migration : onglet **Réseau** → ouvrez un article → vous verrez `GET /hda/articles/:slug/comments`. Postez un commentaire (connecté) → requête `POST /hda/articles/:slug/comments` avec l'header `Authorization: Token ...`. La liste se met à jour sans rechargement de page.
+Le bouton **Reset** vide la timeline et le panneau de détail.
 
 ---
 
@@ -357,7 +239,7 @@ make clean   # supprime le binaire et les *_templ.go générés
 ### SPA Preact (`preact-realworld-example-app/`)
 
 ```bash
-npm run start   # serveur de développement (port 8080)
+npm run start       # serveur de développement (port 8080)
 npm run build   # build de production dans dist/
 ```
 
@@ -372,13 +254,9 @@ npm run build   # build de production dans dist/
 │   │   ├── index.html              #   charge HTMX via CDN (step-01+)
 │   │   ├── components/
 │   │   │   └── PopularTags.tsx     #   ← point de montage HTMX (step-01)
-│   │   ├── pages/
-│   │   │   ├── Home.tsx            #   pont conduit:tag → htmx.ajax() (step-02)
-│   │   │   ├── Profile.tsx         #   pont routeur → htmx.ajax() (step-03)
-│   │   │   └── Article.tsx         #   hx-headers JWT + point de montage comments (step-04)
-│   │   └── types/
-│   │       └── global.d.ts         #   types hx-*, window.htmx (step-01+)
-│   └── Dockerfile                  #   build WMR + serve statique
+│   │   └── pages/
+│   │       └── Home.tsx            #   écoute l'événement DOM conduit:tag (step-01)
+│   └── Dockerfile                  #   build Vite + serve statique
 ├── go-hda-backend/                 # Backend Go — sert les fragments sur /hda/*
 │   ├── cmd/server/main.go          #   serveur Echo, routes /hda/*
 │   ├── Makefile
@@ -386,29 +264,38 @@ npm run build   # build de production dans dist/
 │   └── internal/
 │       ├── api/                    #   client HTTP vers api.realworld.show
 │       │   ├── client.go
-│       │   ├── types.go            #   TagsResponse, Article, Author, Comment, ...
-│       │   ├── tags.go             #   GetTags()
-│       │   ├── articles.go         #   GetArticles + GetProfileArticles (step-02/03)
-│       │   └── comments.go         #   GetComments, CreateComment, DeleteComment (step-04)
+│       │   ├── types.go
+│       │   └── tags.go
 │       ├── handlers/
-│       │   ├── tags.go             #   GET /hda/tags → fragment HTML
-│       │   ├── articles.go         #   GET /hda/articles → fragment HTML (step-02)
-│       │   ├── profile_articles.go #   GET /hda/profile/articles → fragment HTML (step-03)
-│       │   └── comments.go         #   GET/POST/DELETE /hda/articles/:slug/comments (step-04)
+│       │   └── tags.go             #   GET /hda/tags → fragment HTML
 │       └── templates/
 │           ├── tags.templ          #   template du fragment PopularTags
-│           ├── tags_templ.go       #   généré par templ generate
-│           ├── articles.templ      #   template ArticleFeed + articleCard partagé (step-02)
-│           ├── articles_templ.go   #   généré par templ generate
-│           ├── profile_articles.templ     #   template ProfileArticlesFeed (step-03)
-│           ├── profile_articles_templ.go  #   généré par templ generate
-│           ├── comments.templ      #   template CommentsFeed + commentCard (step-04)
-│           └── comments_templ.go   #   généré par templ generate
+│           └── tags_templ.go       #   généré par templ generate
 ├── reverse-proxy/                  # Traefik — URL unique localhost:1337
-│   ├── docker-compose.yml          #   Traefik + Go HDA + SPA, routing PathPrefix
+│   ├── docker-compose.yml          #   Traefik + Go HDA + SPA + Traffic Dashboard
 │   ├── .env.example
-│   └── traefik/
-│       └── traefik.yml             #   entrypoint :1337, provider Docker
+│   ├── traefik/
+│   │   └── traefik.yml             #   entrypoint :1337, provider Docker, plugin local
+│   └── traffic-dashboard/          # Dashboard de visualisation du trafic HTTP live
+│       ├── CLAUDE.md               #   spécifications et principes de conception
+│       ├── plugin/                 #   plugin Traefik (middleware, stdlib uniquement)
+│       │   ├── .traefik.yml        #     métadonnées du plugin
+│       │   ├── go.mod
+│       │   └── plugin.go           #     capture req/resp → POST /ingest
+│       └── collector/              #   collecteur Go + UI HTMX
+│           ├── cmd/main.go         #     point d'entrée
+│           ├── Dockerfile
+│           ├── Makefile
+│           ├── go.mod
+│           └── internal/
+│               ├── config/         #     paramètres (buffer, maxBodySize, redaction)
+│               ├── model/          #     Event, RequestInfo, ResponseInfo
+│               ├── store/          #     ring buffer thread-safe (500 événements)
+│               ├── sse/            #     broker SSE fan-out → clients browser
+│               ├── filter/         #     filtrage par route/service/content-type
+│               ├── redact/         #     redaction headers + champs JSON sensibles
+│               ├── server/         #     routes Echo : /ingest /events /ui/* /api/*
+│               └── templates/      #     UI : layout, timeline, détail (HTMX + PicoCSS)
 ├── presentation/                   # Deck SliDesk — jamais touché dans step-*
 ├── AGENTS.md                       # Vision et règles du dépôt
 ├── MIGRATION_STEP.md               # Description du step courant
@@ -417,34 +304,19 @@ npm run build   # build de production dans dist/
 
 ---
 
-## Architecture de communication HTMX ↔ SPA
+## Architecture de communication HTMX → SPA
 
-### step-01 : PopularTags (fragment sans paramètres)
+Quand l'utilisateur clique un tag dans le fragment Go :
 
 ```mermaid
 flowchart TD
     A["🖱️ Clic sur un tag\nfragment HTML servi par Go"]
     B["onclick dispatche\nCustomEvent('conduit:tag', { detail: tagname })"]
     C["Home.tsx écoute 'conduit:tag'\ndocument.addEventListener"]
-    D["htmx.ajax() recharge #article-feed\navec tab=tag&tag=...&page=1"]
-    E["🐹 Go → ArticleFeed filtré par tag"]
+    D["State Preact mis à jour\nsetTag · setCurrentActiveTab('tag')"]
+    E["Fil d'articles rechargé\nencore rendu côté client"]
 
     A --> B --> C --> D --> E
 ```
 
-### step-02 : ArticleFeed (fragment auto-rafraîchissant)
-
-```mermaid
-flowchart LR
-    Mount["Point de montage\n&lt;div id='article-feed'\n hx-get='/hda/articles'\n hx-trigger='load' /&gt;"]
-    Go["🐹 Go\nArticleFeed\n(tabs + articles\n+ pagination)"]
-    Pagination["🖱️ Clic pagination\nhx-get='/hda/articles?page=N'\nhx-target='#article-feed'"]
-    Tags["🖱️ Clic tag (PopularTags)\nconduit:tag → htmx.ajax()"]
-
-    Mount -->|"charge"| Go
-    Go -->|"contient"| Pagination
-    Pagination -->|"recharge"| Go
-    Tags -->|"recharge"| Go
-```
-
-Ces deux patterns **découplent les fragments Go du JS Preact** : ils ne se connaissent pas directement, ils communiquent via le DOM et les attributs HTMX. C'est intentionnel et pédagogique.
+Ce pattern **découple le HTML Go du JS Preact** : ils ne se connaissent pas directement, ils communiquent via le DOM. C'est intentionnel et pédagogique.
