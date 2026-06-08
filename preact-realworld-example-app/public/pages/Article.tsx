@@ -1,28 +1,25 @@
 /**
- * Article — step-04-comments
+ * Article — step-05-webcomponent
  *
- * Migrations effectuées par rapport à step-03 :
+ * Migrations effectuées par rapport à step-04 :
  *
- * Avant (step-03) :
- *   - 4 states Preact (article, comments, commentBody, isLoading)
- *   - useEffect : apiGetComments → setComments
- *   - postComment : apiCreateComment → setComments
- *   - ArticleCommentCard avec onDelete callback → setComments
- *   - JSX : formulaire + liste de commentaires gérés en Preact
+ * Avant (step-04) :
+ *   - ArticleMeta restait un composant Preact local, dupliqué en haut et en bas de page
+ *   - follow/favorite/delete passaient encore par des callbacks Preact + API JSON
+ *   - les commentaires étaient déjà servis par un fragment Go + HTMX
  *
- * Après (step-04) :
- *   - 2 states (article, isLoading) — les commentaires sont la responsabilité du fragment Go
- *   - Point de montage HTMX <div id="comments" hx-get="..." hx-trigger="load" hx-swap="innerHTML">
- *   - JWT injecté via htmx:configRequest (index.tsx) — jamais exposé dans le DOM
- *   - username et userImage passés en query param pour que Go puisse rendre le formulaire
- *     et les boutons delete de façon conditionnelle
+ * Après (step-05) :
+ *   - les deux ArticleMeta deviennent des fragments Go chargés en HTMX
+ *   - Go retourne un <conduit-article-meta> rendu côté serveur, enrichi par Lit côté navigateur
+ *   - les mutations favorite/follow/delete sont des requêtes HTMX ; les deux occurrences sont
+ *     synchronisées via un swap out-of-band
+ *   - le JWT reste injecté par htmx:configRequest (index.tsx), jamais dans le DOM
  *
- * L'utilisateur ne voit aucune différence visuelle.
+ * Article.tsx reste la coquille SPA : titre, corps Markdown, routing et montage des fragments.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import snarkdown from 'snarkdown';
 
-import { ArticleMeta } from '../components/ArticleMeta';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { apiGetArticle } from '../services/api/article';
 import { useStore } from '../store';
@@ -37,7 +34,7 @@ export default function ArticlePage(props: ArticlePageProps) {
 	const [article, setArticle] = useState<Article | undefined>(undefined);
 	const [isLoading, setIsLoading] = useState(false);
 	const user = useStore(state => state.user);
-	const commentsRef = useRef<HTMLDivElement>(null);
+	const hdaRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		(async function () {
@@ -47,28 +44,37 @@ export default function ArticlePage(props: ArticlePageProps) {
 		})();
 	}, [props.params.slug]);
 
-	// Même pattern que Home.tsx : HTMX ne scanne pas les éléments ajoutés
-	// par le routeur SPA. htmx.process() sur le conteneur #comments déclenche
-	// le hx-trigger="load" après une navigation SPA vers cette page.
+	// HTMX ne scanne pas automatiquement les éléments ajoutés par le routeur SPA.
+	// Un seul process() sur la page couvre ArticleMeta banner/actions et les commentaires.
 	useEffect(() => {
-		if (commentsRef.current) window.htmx.process(commentsRef.current);
-	}, [article]);
+		if (article && hdaRef.current) window.htmx.process(hdaRef.current);
+	}, [article, props.params.slug, user?.username, user?.image]);
+
+	const encodedSlug = encodeURIComponent(props.params.slug);
+	const currentUsername = encodeURIComponent(user?.username ?? '');
+	const articleMetaUrl = (slot: 'banner' | 'actions') =>
+		`/hda/articles/${encodedSlug}/meta?slot=${slot}&currentUsername=${currentUsername}`;
 
 	// username et userImage passés en query params pour que Go puisse rendre
 	// le formulaire et les boutons delete de façon conditionnelle.
 	// Le JWT est injecté automatiquement par le listener htmx:configRequest dans index.tsx.
-	const commentsUrl = `/hda/articles/${encodeURIComponent(props.params.slug)}/comments`
-		+ `?username=${encodeURIComponent(user?.username ?? '')}`
+	const commentsUrl = `/hda/articles/${encodedSlug}/comments`
+		+ `?username=${currentUsername}`
 		+ `&userImage=${encodeURIComponent(user?.image ?? '')}`;
 
 	return !article ? (
 		<LoadingIndicator show={isLoading} style={{ margin: '1rem auto', display: 'flex' }} width="2em" />
 	) : (
-		<div class="article-page">
+		<div class="article-page" ref={hdaRef}>
 			<div class="banner">
 				<div class="container">
 					<h1>{article.title}</h1>
-					<ArticleMeta article={article} />
+					<div
+						id="article-meta-banner"
+						hx-get={articleMetaUrl('banner')}
+						hx-trigger="load"
+						hx-swap="outerHTML"
+					/>
 				</div>
 			</div>
 
@@ -80,19 +86,18 @@ export default function ArticlePage(props: ArticlePageProps) {
 				<hr />
 
 				<div class="article-actions">
-					<ArticleMeta article={article} />
+					<div
+						id="article-meta-actions"
+						hx-get={articleMetaUrl('actions')}
+						hx-trigger="load"
+						hx-swap="outerHTML"
+					/>
 				</div>
 
 				<div class="row">
 					<div class="col-xs-12 col-md-8 offset-md-2">
-						{/*
-						 * Point de montage HTMX — step-04.
-						 * hx-swap="innerHTML" : le div reste dans le DOM entre les requêtes.
-						 * Le JWT est injecté par htmx:configRequest (index.tsx), pas ici.
-						 */}
 						<div
 							id="comments"
-							ref={commentsRef}
 							hx-get={commentsUrl}
 							hx-trigger="load"
 							hx-swap="innerHTML"

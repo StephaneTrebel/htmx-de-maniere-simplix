@@ -1,93 +1,55 @@
-# MIGRATION_STEP.md — step-04-comments
+# MIGRATION_STEP.md — step-05-webcomponent
 
 ## Nom de la branche
 
-`step-04-comments`
+`step-05-webcomponent`
 
 ---
 
 ## Objectif du step
 
-Migrer la **section commentaires** de la page article (`/article/:slug`) vers un fragment HTML
-servi par le backend Go : formulaire d'ajout, liste de commentaires, bouton de suppression.
+Migrer **ArticleMeta** sur la page article (`/article/:slug`) vers un fragment HTML servi par Go et enrichi par un Web Component `<conduit-article-meta>` basé sur Lit.
 
-Ce step introduit les **opérations d'écriture via HTMX** (`hx-post`, `hx-delete`) — les trois
-steps précédents n'utilisaient que `hx-get`. Il introduit également la **propagation du JWT**
-depuis la SPA Preact vers le backend Go via le hook `htmx:configRequest`, sans jamais exposer
-le token dans le DOM.
+Ce step conserve `Article.tsx` comme coquille SPA pour le routing, le chargement de l'article et le rendu Markdown du corps. Les deux occurrences d'ArticleMeta, dans la bannière et dans les actions sous l'article, deviennent des points de montage HTMX : Go rend le HTML complet, gère les mutations favorite/follow/delete, puis renvoie le nouvel état HTML.
 
-Le corps de l'article et les métadonnées (`ArticleMeta`) restent intentionnellement en Preact :
-ils nécessitent un rendu Markdown et des interactions (favorite, follow) liées à l'authentification.
+Le point important du step : une mutation sur une occurrence synchronise l'autre occurrence via `hx-swap-oob`, sans état Preact partagé et sans exposer le JWT dans le DOM.
 
 ---
 
-## Différence avec step-03
+## Différence avec step-04
 
-| | step-03-profile | step-04-comments |
+| | step-04-comments | step-05-webcomponent |
 |---|---|---|
-| Commentaires (liste) | Rendu Preact (`{comments.map(...)}`) | Fragment HTML Go |
-| Formulaire ajout commentaire | Preact (`onSubmit → apiCreateComment`) | `hx-post` Go |
-| Bouton supprimer | Preact (`onClick → apiDeleteComment`) | `hx-delete` Go |
-| States dans Article.tsx | 4 (article, comments, commentBody, isLoading) | 2 (article, isLoading) |
-| JWT transmis à Go | — | `htmx:configRequest` — lu en mémoire Zustand, jamais dans le DOM |
-| Verbes HTTP HTMX | GET uniquement | GET + POST + DELETE |
-
----
-
-## Nouveau concept : `htmx:configRequest` — JWT depuis Zustand sans toucher le DOM
-
-HTMX déclenche un événement `htmx:configRequest` juste avant chaque requête. Son `detail.headers`
-est modifiable — c'est le point d'injection idéal pour un header d'authentification.
-
-Zustand expose `getState()` utilisable hors composant React, ce qui permet de lire le token
-en mémoire au moment exact de l'envoi :
-
-```ts
-// index.tsx — une seule fois, couvre tous les fragments HTMX de l'app
-document.addEventListener('htmx:configRequest', (e) => {
-  const token = useStore.getState().user?.token;
-  if (token) {
-    e.detail.headers['Authorization'] = `Token ${token}`;
-  }
-});
-```
-
-**Pourquoi c'est mieux que `hx-headers` dans le DOM :**
-
-| Approche | Token visible dans DevTools (Elements) | Token lisible par JS |
-|---|---|---|
-| `hx-headers='{"Authorization":"Token xxx"}'` | **Oui** | Oui |
-| `htmx:configRequest` | **Non** | Oui (mémoire Zustand) |
-
-Le token reste en mémoire JS (store Zustand), exactement là où il était. Il n'est jamais
-sérialisé dans un attribut HTML.
+| ArticleMeta | Composant Preact local, dupliqué deux fois | Fragment Go `<conduit-article-meta>` chargé par HTMX |
+| Favorite / unfavorite | Callback Preact + API JSON | `hx-post` / `hx-delete` vers Go |
+| Follow / unfollow | Callback Preact + API JSON | `hx-post` / `hx-delete` vers Go |
+| Delete article | Callback Preact + route SPA | `hx-delete`, puis header `HX-Redirect: /` |
+| Synchronisation bannière/actions | Deux states Preact indépendants | Réponse HTML avec swap out-of-band |
+| Enrichissement JS | Preact | Lit `ReactiveElement` sans Shadow DOM, Light DOM serveur préservé |
+| JWT | Déjà injecté via `htmx:configRequest` | Même pont JWT, étendu aux mutations ArticleMeta |
 
 ---
 
 ## Architecture de communication
 
+```mermaid
+flowchart TD
+    A["Article.tsx charge l'article JSON\npour titre + corps Markdown"]
+    B["Mount HTMX banner\nGET /hda/articles/:slug/meta?slot=banner"]
+    C["Mount HTMX actions\nGET /hda/articles/:slug/meta?slot=actions"]
+    D["Go rend <conduit-article-meta>\nLight DOM complet"]
+    E["Lit ReactiveElement\nconfirmation delete + busy state\nwindow.htmx.process(this)"]
+    F["Mutation favorite/follow\nhx-post ou hx-delete"]
+    G["Go effectue la mutation via API RealWorld\nrefetch article"]
+    H["ArticleMetaPair\nslot actif + autre slot hx-swap-oob"]
+
+    A --> B --> D
+    A --> C --> D
+    D --> E
+    E --> F --> G --> H
 ```
-index.tsx — listener global htmx:configRequest
-│   useStore.getState().user?.token  ← mémoire Zustand
-│   e.detail.headers['Authorization'] = 'Token xxx'
-│
-└── intercepte toutes les requêtes HTMX de l'app :
-    ├── GET  /hda/articles/:slug/comments  (chargement initial)
-    ├── POST /hda/articles/:slug/comments  (ajout commentaire)
-    └── DELETE /hda/articles/:slug/comments/:id  (suppression)
 
-Article.tsx
-└── <div id="comments"
-         hx-get="/hda/articles/{slug}/comments?username=...&userImage=..."
-         hx-trigger="load"
-         hx-swap="innerHTML">          ← pas de hx-headers ici
-```
-
-**Pourquoi `innerHTML` ?**
-
-Après un POST ou DELETE, Go re-rend le fragment complet (liste + formulaire).
-Avec `innerHTML`, le div `#comments` reste dans le DOM entre les réponses —
-HTMX peut toujours cibler `#comments` comme conteneur stable.
+`Article.tsx` ne lit pas l'état JSON de l'article pour gérer favorite/follow. Il transmet seulement `currentUsername` en query param afin que Go rende les actions auteur/lecteur correctement. Le JWT reste lu en mémoire Zustand au moment de la requête par le listener global `htmx:configRequest`.
 
 ---
 
@@ -95,129 +57,44 @@ HTMX peut toujours cibler `#comments` comme conteneur stable.
 
 | Verbe | Route | Handler |
 |---|---|---|
-| GET | `/hda/articles/:slug/comments` | `CommentsHandler` |
-| POST | `/hda/articles/:slug/comments` | `CreateCommentHandler` |
-| DELETE | `/hda/articles/:slug/comments/:id` | `DeleteCommentHandler` |
+| GET | `/hda/articles/:slug/meta` | `ArticleMetaHandler` |
+| POST | `/hda/articles/:slug/favorite` | `FavoriteArticleHandler` |
+| DELETE | `/hda/articles/:slug/favorite` | `UnfavoriteArticleHandler` |
+| POST | `/hda/profiles/:username/follow` | `FollowProfileHandler` |
+| DELETE | `/hda/profiles/:username/follow` | `UnfollowProfileHandler` |
+| DELETE | `/hda/articles/:slug` | `DeleteArticleHandler` |
+
+Les mutations favorite/follow retournent un couple de fragments : le slot actif en réponse normale et l'autre slot en `hx-swap-oob="true"`. La suppression d'article retourne `HX-Redirect: /`.
 
 ---
 
-## Propagation du username après POST/DELETE
-
-Go doit connaître l'utilisateur connecté pour :
-1. Afficher le formulaire (si authentifié)
-2. Afficher le bouton supprimer (si auteur du commentaire)
-
-Le JWT ne peut pas être décodé côté Go sans bibliothèque JWT. Solution simple :
-
-- Chargement initial : `username` et `userImage` passés en **query params**
-- POST : `username` et `userImage` en **hidden fields** dans le formulaire
-- DELETE : `username` via **`hx-vals`** sur le bouton
-
-Après chaque mutation, Go re-fetch les commentaires et re-rend `CommentsFeed` avec les bons paramètres.
-
----
-
-## Diff Preact
-
-### `index.tsx` — listener global ajouté
-
-```diff
-+// Injecte le JWT Zustand dans chaque requête HTMX, sans exposer le token dans le DOM.
-+document.addEventListener('htmx:configRequest', (e) => {
-+  const token = useStore.getState().user?.token;
-+  if (token) {
-+    e.detail.headers['Authorization'] = `Token ${token}`;
-+  }
-+});
-
- hydrate(<App />);
-```
-
-### `Article.tsx` — states 4→2, point de montage sans auth dans le DOM
-
-```diff
--import { useEffect, useState } from 'preact/hooks';
-+import { useEffect, useRef, useState } from 'preact/hooks';
--import { ArticleCommentCard } from '../components/ArticleCommentCard';
--import { apiCreateComment, apiGetComments } from '../services/api/comments';
-
- export default function ArticlePage(props) {
-   const [article, setArticle] = useState(undefined);
--  const [comments, setComments] = useState([]);
--  const [commentBody, setCommentBody] = useState('');
-   const [isLoading, setIsLoading] = useState(false);
-+  const commentsRef = useRef(null);
-
--  const postComment = async (e) => { ... };
--  useEffect(() => { setComments(await apiGetComments(slug)); }, [slug]);
-
-+  useEffect(() => {
-+    if (commentsRef.current) window.htmx.process(commentsRef.current);
-+  }, [article]);
-
--  // Formulaire + {comments.map(comment => <ArticleCommentCard ... />)}
-+  <div id="comments" ref={commentsRef}
-+       hx-get={commentsUrl} hx-trigger="load" hx-swap="innerHTML" />
-```
-
-### `global.d.ts` — type `htmx:configRequest` ajouté
-
-```diff
-+interface HtmxConfigRequestDetail {
-+  headers: Record<string, string>;
-+  ...
-+}
-+interface DocumentEventMap {
-+  'htmx:configRequest': CustomEvent<HtmxConfigRequestDetail>;
-+}
-```
-
----
-
-## Fichiers modifiés / créés
+## Fichiers et applications modifiés
 
 | Fichier | Action |
 |---|---|
-| `go-hda-backend/internal/api/types.go` | ajout `Comment`, `CommentsResponse`, `CommentResponse` |
-| `go-hda-backend/internal/api/comments.go` | créé — `GetComments`, `CreateComment`, `DeleteComment` |
-| `go-hda-backend/internal/handlers/comments.go` | créé — 3 handlers GET/POST/DELETE |
-| `go-hda-backend/internal/templates/comments.templ` | créé — `CommentsFeed`, `commentCard` |
-| `go-hda-backend/internal/templates/comments_templ.go` | généré par `make templ` |
-| `go-hda-backend/cmd/server/main.go` | 3 nouvelles routes |
-| `preact-realworld-example-app/public/index.tsx` | listener `htmx:configRequest` global |
-| `preact-realworld-example-app/public/pages/Article.tsx` | states 4→2, point de montage HTMX |
-| `preact-realworld-example-app/public/types/global.d.ts` | type `HtmxConfigRequestDetail` |
+| `go-hda-backend/internal/api/articles.go` | méthodes article/profile : get, favorite, unfavorite, delete, follow, unfollow |
+| `go-hda-backend/internal/api/types.go` | ajout `ArticleResponse` |
+| `go-hda-backend/internal/api/articles_test.go` | tests du client API article/profile |
+| `go-hda-backend/internal/templates/article_meta.templ` | nouveau template `<conduit-article-meta>` + OOB pair |
+| `go-hda-backend/internal/templates/article_meta_templ.go` | généré par `make templ` |
+| `go-hda-backend/internal/templates/article_meta_test.go` | tests rendu auteur/lecteur/OOB/toggles DELETE |
+| `go-hda-backend/internal/handlers/article_meta.go` | handlers HTMX de lecture et mutations |
+| `go-hda-backend/internal/handlers/article_meta_test.go` | tests handlers avec fake client |
+| `go-hda-backend/cmd/server/main.go` | routes step-05 |
+| `preact-realworld-example-app/public/webcomponents/conduit-article-meta.ts` | Web Component Lit, Light DOM préservé |
+| `preact-realworld-example-app/public/index.tsx` | import navigateur-only du Web Component |
+| `preact-realworld-example-app/public/pages/Article.tsx` | remplacement des deux `ArticleMeta` par mounts HTMX |
+| `preact-realworld-example-app/public/types/global.d.ts` | typings HTMX complémentaires |
+| `preact-realworld-example-app/package.json` | dépendance directe `lit` |
+| `preact-realworld-example-app/package-lock.json` | lock npm mis à jour |
 
-### Non modifiés
-
-- `go-hda-backend/internal/templates/articles.templ` — `articleCard` et `formatDate` réutilisés
-- Corps de l'article et `ArticleMeta` — restent en Preact
-- `presentation/` (règle absolue — jamais modifié dans une branche step-*)
-
----
-
-## Architecture de communication après step-04
-
-```mermaid
-flowchart TD
-    A["🌐 Navigation vers /article/slug"]
-    B["Article.tsx — fetch article\nhtmx.process(commentsRef)"]
-    C["🐹 Go → CommentsFeed\nformulaire + liste\n(innerHTML de #comments)"]
-    D["📝 Submit formulaire\nhx-post — JWT via htmx:configRequest"]
-    E["🐹 Go → CreateComment → GetComments\nCommentsFeed mis à jour"]
-    F["🗑️ Clic supprimer\nhx-delete — JWT via htmx:configRequest"]
-    G["🐹 Go → DeleteComment → GetComments\nCommentsFeed mis à jour"]
-
-    A --> B --> C
-    C --> D --> E
-    C --> F --> G
-```
+`presentation/` n'est pas modifié par ce step.
 
 ---
 
 ## Commandes de lancement
 
-### Mode stack complète (Docker + Traefik) — recommandé
+### Stack complète — recommandé
 
 ```bash
 cd reverse-proxy
@@ -227,7 +104,7 @@ docker compose up --build
 
 Ouvrir : **http://localhost:1337**
 
-### Mode développement (sans Docker)
+### Mode développement sans Docker
 
 ```bash
 # Terminal 1 — Backend Go
@@ -242,39 +119,43 @@ cd preact-realworld-example-app && npm ci && npm run start
 ## Commandes de vérification
 
 ```bash
-# Build + vet Go
+# Templates Go
+cd go-hda-backend && make templ
+
+# Tests backend
+cd go-hda-backend && go test ./...
+
+# Build + vet backend
 cd go-hda-backend && go build ./... && go vet ./...
 
-# Tester les fragments manuellement (backend Go lancé)
-curl http://localhost:3000/hda/tags
-curl "http://localhost:3000/hda/articles?tab=global&page=1"
-curl "http://localhost:3000/hda/articles/slug/comments"
+# Build SPA
+cd preact-realworld-example-app && npm run build
 
-# Vérifier que presentation/ n'est pas touché
-git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo "OK"
+# Règle absolue : aucune modification du deck
+git diff --name-only step-04-comments...HEAD | grep presentation/ && echo "ERREUR" || echo "OK"
 ```
 
 ---
 
 ## Point narratif pour la démo
 
-> *"Jusqu'ici on a fait que du GET — lire des données. Maintenant on passe à l'écriture.
-> Sur la page article, la section commentaires : poster un commentaire, supprimer le sien.*
->
-> *Le défi : les opérations d'écriture nécessitent le JWT de l'utilisateur. Mais ce JWT
-> vit dans le store Zustand de Preact — en mémoire JavaScript. Comment le transmettre à
-> HTMX sans l'exposer dans le DOM ?*
->
-> *HTMX déclenche un événement `htmx:configRequest` juste avant chaque requête. On y
-> branche un listener dans `index.tsx` — une seule ligne — qui lit le token depuis Zustand
-> et l'injecte dans les headers. Le token ne touche jamais le DOM. Ça fonctionne pour
-> tous les fragments HTMX de l'app, actuels et futurs, sans rien changer d'autre."*
+Ce step montre le moment où HTMX ne remplace plus seulement une liste ou un formulaire, mais une zone interactive riche qui existait deux fois dans la page.
+
+Le message à faire passer :
+
+1. Le serveur peut rendre un composant HTML complet, y compris les boutons d'action.
+2. HTMX peut gérer les écritures et renvoyer le nouvel état HTML sans state frontend.
+3. `hx-swap-oob` synchronise deux occurrences du même concept sans store client.
+4. Lit peut enrichir le fragment serveur de comportements locaux, ici confirmation et busy state, sans reprendre la responsabilité du rendu.
+
+Le Web Component n'est donc pas un retour à une SPA : il garde le Light DOM rendu par Go et ajoute seulement le comportement strictement local au navigateur.
 
 ---
 
-## Limites connues
+## Limites connues et reste côté SPA
 
-- **Bouton favorite (❤)** dans les cartes d'articles reste non fonctionnel (hérité de step-02).
-- **"Your Feed"** sur Home reste hors périmètre.
-- `Article.tsx` conserve l'appel API JSON (`apiGetArticle`) et le rendu Markdown.
-- Aucun test automatisé pour le backend Go.
+- `Article.tsx` charge encore l'article en JSON pour le titre, le corps Markdown et l'état de chargement.
+- Le corps Markdown reste rendu côté Preact avec `snarkdown`.
+- Les pages Editor, Settings, Auth et une partie des pages Profile restent SPA + API JSON.
+- Le backend Go ne décode pas le JWT : il le propage à l'API RealWorld et reçoit `currentUsername` depuis la SPA pour le rendu conditionnel.
+- La gestion fine des erreurs HTMX côté UI reste minimale : les handlers retournent des statuts HTTP simples.

@@ -14,6 +14,7 @@ declare namespace preact.JSX {
 		'hx-delete'?: string;
 		'hx-trigger'?: string;
 		'hx-swap'?: string;
+		'hx-swap-oob'?: string;
 		'hx-target'?: string;
 		'hx-push-url'?: string;
 		'hx-vals'?: string;
@@ -21,6 +22,7 @@ declare namespace preact.JSX {
 		'hx-boost'?: string;
 		'hx-select'?: string;
 		'hx-headers'?: string;
+		'hx-confirm'?: string;
 	}
 }
 
@@ -32,6 +34,12 @@ interface HtmxAjaxOptions {
 	swap?: string;
 	values?: Record<string, string>;
 	headers?: Record<string, string>;
+}
+
+interface HtmxRequestDetail {
+	elt: Element;
+	target: Element;
+	xhr: XMLHttpRequest;
 }
 
 interface HtmxConfigRequestDetail {
@@ -49,6 +57,8 @@ interface Htmx {
 }
 
 interface DocumentEventMap {
+	'htmx:beforeRequest': CustomEvent<HtmxRequestDetail>;
+	'htmx:afterRequest': CustomEvent<HtmxRequestDetail>;
 	'htmx:configRequest': CustomEvent<HtmxConfigRequestDetail>;
 }
 

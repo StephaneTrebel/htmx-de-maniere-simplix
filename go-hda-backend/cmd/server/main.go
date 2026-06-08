@@ -35,6 +35,14 @@ func main() {
 	e.POST("/hda/articles/:slug/comments", handlers.CreateCommentHandler)
 	e.DELETE("/hda/articles/:slug/comments/:id", handlers.DeleteCommentHandler)
 
+	// step-05 : ArticleMeta Web Component (lecture + mutations article/profil)
+	e.GET("/hda/articles/:slug/meta", handlers.ArticleMetaHandler)
+	e.POST("/hda/articles/:slug/favorite", handlers.FavoriteArticleHandler)
+	e.DELETE("/hda/articles/:slug/favorite", handlers.UnfavoriteArticleHandler)
+	e.POST("/hda/profiles/:username/follow", handlers.FollowProfileHandler)
+	e.DELETE("/hda/profiles/:username/follow", handlers.UnfollowProfileHandler)
+	e.DELETE("/hda/articles/:slug", handlers.DeleteArticleHandler)
+
 	// Port
 	port := os.Getenv("PORT")
 	if port == "" {

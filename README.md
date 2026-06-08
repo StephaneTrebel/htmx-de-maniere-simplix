@@ -58,6 +58,17 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 | `step-02-article-feed` | **ArticleFeed** (fil d'articles + tabs + pagination) | Fragment paramétré et auto-rafraîchissant ; navigation sans JS ; pont événement DOM → `htmx.ajax()` |
 | `step-03-profile` | **ProfileArticlesFeed** (articles d'un profil + tabs + pagination) | Fragment paramétré par un identifiant de route Preact ; routeur SPA → `htmx.ajax()` ; réutilisation de template Go entre pages |
 | `step-04-comments` | **CommentsFeed** (commentaires d'un article : liste + ajout + suppression) | Premières **opérations d'écriture** (`hx-post`, `hx-delete`) ; JWT injecté via `htmx:configRequest` depuis Zustand — jamais exposé dans le DOM |
+| `step-05-webcomponent` | **ArticleMeta** (bannière + actions d'un article) | Web Component `<conduit-article-meta>` rendu par Go, enrichi par Lit ; mutations HTMX favorite/follow/delete ; synchronisation par `hx-swap-oob` |
+
+---
+
+## Possible Enhancement — approfondissement JWT/auth
+
+Le step-04 introduit le pont `htmx:configRequest` pour injecter le JWT depuis Zustand sans le sérialiser dans le DOM. Le step-05 réutilise ce mécanisme pour des mutations plus visibles : favorite, follow et delete article.
+
+Une amélioration possible pour une branche dédiée serait d'en faire un chapitre complet : comparaison `hx-headers` vs listener global, stratégie d'expiration, gestion des erreurs 401/403, redirection login côté HTMX, et éventuellement un backend capable de décoder le JWT ou de récupérer `/user` pour éviter de passer `currentUsername` en query param.
+
+Ce sujet reste volontairement hors des branches `step-*` actuelles pour garder chaque jalon petit et démontrable.
 
 ---
 

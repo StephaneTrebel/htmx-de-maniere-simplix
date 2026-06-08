@@ -39,6 +39,19 @@ func TestArticleMetaRendersReaderActionsWithHtmxMutations(t *testing.T) {
 	assertNotContains(t, html, `hx-delete="/hda/articles/hello-world"`)
 }
 
+func TestArticleMetaRendersDeleteMutationsForFollowingAndFavoritedReader(t *testing.T) {
+	article := sampleArticle()
+	article.Favorited = true
+	article.Author.Following = true
+
+	html := renderComponent(t, ArticleMeta(article, "actions", "bob"))
+
+	assertContains(t, html, `hx-delete="/hda/profiles/alice/follow?articleSlug=hello-world&amp;slot=actions&amp;currentUsername=bob"`)
+	assertContains(t, html, `hx-delete="/hda/articles/hello-world/favorite?slot=actions&amp;currentUsername=bob"`)
+	assertNotContains(t, html, `hx-post="/hda/profiles/alice/follow?articleSlug=hello-world&amp;slot=actions&amp;currentUsername=bob"`)
+	assertNotContains(t, html, `hx-post="/hda/articles/hello-world/favorite?slot=actions&amp;currentUsername=bob"`)
+}
+
 func TestArticleMetaPairRendersOtherSlotOutOfBand(t *testing.T) {
 	article := sampleArticle()
 
@@ -75,17 +88,13 @@ func sampleArticle() api.Article {
 func assertContains(t *testing.T, html string, expected string) {
 	t.Helper()
 	if !strings.Contains(html, expected) {
-		t.Fatalf("expected HTML to contain %q
-HTML:
-%s", expected, html)
+		t.Fatalf("expected HTML to contain %q\nHTML:\n%s", expected, html)
 	}
 }
 
 func assertNotContains(t *testing.T, html string, unexpected string) {
 	t.Helper()
 	if strings.Contains(html, unexpected) {
-		t.Fatalf("expected HTML not to contain %q
-HTML:
-%s", unexpected, html)
+		t.Fatalf("expected HTML not to contain %q\nHTML:\n%s", unexpected, html)
 	}
 }

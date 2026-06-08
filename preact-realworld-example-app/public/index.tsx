@@ -38,6 +38,8 @@ export default function App() {
 }
 
 if (typeof window !== 'undefined') {
+	import('./webcomponents/conduit-article-meta');
+
 	// Injecte le JWT Zustand dans chaque requête HTMX, sans exposer le token dans le DOM.
 	// htmx:configRequest se déclenche juste avant l'envoi — le token est lu en mémoire à ce moment.
 	document.addEventListener('htmx:configRequest', e => {

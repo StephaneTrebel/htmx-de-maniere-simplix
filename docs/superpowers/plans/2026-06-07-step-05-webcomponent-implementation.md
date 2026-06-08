@@ -10,14 +10,14 @@
 
 ---
 
-**Resume State, 2026-06-07 stop point:**
+**Completion State, 2026-06-08:**
 
 - Worktree: `/home/stephane/.config/superpowers/worktrees/htmx-de-maniere-simplix/step-05-webcomponent` on branch `step-05-webcomponent`.
-- Completed and committed before this stop: Task 1 API client methods, including RED then GREEN for `cd go-hda-backend && go test ./internal/api`.
-- Current WIP: Task 2, Step 1 started. `go-hda-backend/internal/templates/article_meta_test.go` has been created but the first RED run failed on a test syntax issue, not on the expected missing `ArticleMeta` symbol.
-- Exact next action: fix the multiline `t.Fatalf` strings in `assertContains` and `assertNotContains` to use escaped newlines (`\n`), then run `cd go-hda-backend && go test ./internal/templates` again. Expected RED after that: `ArticleMeta` and `ArticleMetaPair` undefined.
-- Not started: `article_meta.templ`, generated templ file, handlers/routes, SPA Lit integration, docs update, full validation.
-- Latest verification before Task 2 WIP: `go test -count=1 ./internal/api` passed.
+- Task 1 was already completed and committed before the 2026-06-07 stop point.
+- Tasks 2 through 5 are now implemented and verified.
+- Task 4 RED note: the first build failed because `wmr` was not installed in this worktree; after installing existing dependencies, `lit` resolved from `node_modules` as an extraneous package and prerender failed on `HTMLElement`. The final fix adds `lit` as a direct dependency and imports the Web Component only in the browser path.
+- Fresh verification before commit: `make templ`, `go test ./...`, `go build ./...`, `go vet ./...`, and `npm run build` all exit 0.
+- Stack verification: `docker compose up --build -d` starts the Traefik/SPA/Go/traffic-dashboard stack; `curl -I -L http://localhost:1337` returns 200; `/hda/articles/how-to-learn-javascript-efficiently/meta` returns a `<conduit-article-meta>` fragment.
 
 ---
 
@@ -119,7 +119,7 @@ Expected: PASS.
 - Create: `go-hda-backend/internal/templates/article_meta.templ`
 - Generate: `go-hda-backend/internal/templates/article_meta_templ.go`
 
-- [ ] **Step 1: Write failing template render tests**
+- [x] **Step 1: Write failing template render tests**
 
 Create tests in package `templates` with a helper:
 
@@ -153,13 +153,13 @@ hx-post="/hda/articles/hello-world/favorite?slot=actions&amp;currentUsername=bob
 hx-swap-oob="true"
 ```
 
-- [ ] **Step 2: Run template tests and verify RED**
+- [x] **Step 2: Run template tests and verify RED**
 
 Run: `cd go-hda-backend && go test ./internal/templates`
 
 Expected: FAIL because `ArticleMeta` and `ArticleMetaPair` are undefined.
 
-- [ ] **Step 3: Implement `article_meta.templ`**
+- [x] **Step 3: Implement `article_meta.templ`**
 
 Define:
 
@@ -180,13 +180,13 @@ func articleMetaFollowURL(username, articleSlug, slot, currentUsername string) s
 
 Use `hx-target="closest conduit-article-meta"` and `hx-swap="outerHTML"` on mutation buttons.
 
-- [ ] **Step 4: Generate templ code**
+- [x] **Step 4: Generate templ code**
 
 Run: `cd go-hda-backend && make templ`
 
 Expected: new `article_meta_templ.go` generated without errors.
 
-- [ ] **Step 5: Run template tests and verify GREEN**
+- [x] **Step 5: Run template tests and verify GREEN**
 
 Run: `cd go-hda-backend && go test ./internal/templates`
 
@@ -201,7 +201,7 @@ Expected: PASS.
 - Create: `go-hda-backend/internal/handlers/article_meta.go`
 - Modify: `go-hda-backend/cmd/server/main.go`
 
-- [ ] **Step 1: Write failing handler tests**
+- [x] **Step 1: Write failing handler tests**
 
 Create tests in package `handlers` using a fake `articleMetaClient` and temporary replacement of `newArticleMetaClient`.
 
@@ -223,13 +223,13 @@ Follow handler returns 400 when articleSlug is missing
 Delete handler sets HX-Redirect to /
 ```
 
-- [ ] **Step 2: Run handler tests and verify RED**
+- [x] **Step 2: Run handler tests and verify RED**
 
 Run: `cd go-hda-backend && go test ./internal/handlers`
 
 Expected: FAIL because article-meta handlers and client factory are undefined.
 
-- [ ] **Step 3: Implement handlers**
+- [x] **Step 3: Implement handlers**
 
 Create `article_meta.go` with:
 
@@ -257,7 +257,7 @@ func UnfollowProfileHandler(c echo.Context) error
 func DeleteArticleHandler(c echo.Context) error
 ```
 
-- [ ] **Step 4: Register routes**
+- [x] **Step 4: Register routes**
 
 In `cmd/server/main.go`, add:
 
@@ -270,7 +270,7 @@ e.DELETE("/hda/profiles/:username/follow", handlers.UnfollowProfileHandler)
 e.DELETE("/hda/articles/:slug", handlers.DeleteArticleHandler)
 ```
 
-- [ ] **Step 5: Run handler tests and verify GREEN**
+- [x] **Step 5: Run handler tests and verify GREEN**
 
 Run: `cd go-hda-backend && go test ./internal/handlers`
 
@@ -288,7 +288,7 @@ Expected: PASS.
 - Modify: `preact-realworld-example-app/public/pages/Article.tsx`
 - Modify: `preact-realworld-example-app/public/types/global.d.ts`
 
-- [ ] **Step 1: Verify RED for missing Lit dependency**
+- [x] **Step 1: Verify RED for missing Lit dependency**
 
 Create `conduit-article-meta.ts` importing `ReactiveElement` from `lit`, import it from `index.tsx`, then run:
 
@@ -296,13 +296,13 @@ Create `conduit-article-meta.ts` importing `ReactiveElement` from `lit`, import 
 
 Expected: FAIL with module resolution error for `lit`.
 
-- [ ] **Step 2: Add Lit dependency**
+- [x] **Step 2: Add Lit dependency**
 
 Run: `cd preact-realworld-example-app && npm install lit --save`
 
 Expected: `package.json` and `package-lock.json` updated, `node_modules/lit` present.
 
-- [ ] **Step 3: Implement Lit enhancer**
+- [x] **Step 3: Implement Lit enhancer**
 
 `conduit-article-meta.ts` should define a `ReactiveElement` subclass that:
 
@@ -324,7 +324,7 @@ connectedCallback(): void {
 
 It must preserve server-rendered Light DOM by not implementing a render template.
 
-- [ ] **Step 4: Replace ArticleMeta usages in Article.tsx**
+- [x] **Step 4: Replace ArticleMeta usages in Article.tsx**
 
 Remove `ArticleMeta` import. Add two HTMX mounts:
 
@@ -335,7 +335,7 @@ Remove `ArticleMeta` import. Add two HTMX mounts:
 
 Use `currentUsername=${encodeURIComponent(user?.username ?? '')}` in the URL. Process the shared HDA container with `window.htmx.process(...)` after article load.
 
-- [ ] **Step 5: Run SPA build and verify GREEN**
+- [x] **Step 5: Run SPA build and verify GREEN**
 
 Run: `cd preact-realworld-example-app && npm run build`
 
@@ -349,15 +349,15 @@ Expected: PASS.
 - Modify: `MIGRATION_STEP.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Update migration docs**
+- [x] **Step 1: Update migration docs**
 
 Rewrite `MIGRATION_STEP.md` for `step-05-webcomponent`, covering objective, diff from `step-04`, files changed, commands, narrative, known limits.
 
-- [ ] **Step 2: Update README**
+- [x] **Step 2: Update README**
 
 Add roadmap row for `step-05-webcomponent` and a `Possible Enhancement` section documenting the future JWT/auth deep dive.
 
-- [ ] **Step 3: Run backend generation and checks**
+- [x] **Step 3: Run backend generation and checks**
 
 Run:
 
@@ -369,19 +369,19 @@ cd go-hda-backend && go build ./... && go vet ./...
 
 Expected: all exit 0.
 
-- [ ] **Step 4: Run SPA build**
+- [x] **Step 4: Run SPA build**
 
 Run: `cd preact-realworld-example-app && npm run build`
 
 Expected: exit 0.
 
-- [ ] **Step 5: Verify presentation is untouched by step-05**
+- [x] **Step 5: Verify presentation is untouched by step-05**
 
 Run: `git diff --name-only step-04-comments...HEAD | grep presentation/ && echo "ERREUR" || echo "OK"`
 
 Expected: `OK`.
 
-- [ ] **Step 6: Commit implementation**
+- [x] **Step 6: Commit implementation**
 
 Stage explicit paths only and commit:
 
