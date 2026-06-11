@@ -49,7 +49,7 @@ flowchart LR
 Un seul point d'entrée. Deux backends. L'utilisateur ne voit pas la frontière.
 
 /*
-Traefik route par PathPrefix : /hda/* va vers Go, tout le reste vers la SPA.
+Traefik route par PathPrefix : /hda/… va vers Go, tout le reste vers la SPA.
 Les deux routes matchent /hda/tags — la priorité explicite (10 vs 1) lève l'ambiguïté sans dépendre du comportement implicite de Traefik.
 Pas de changement d'URL, pas d'entrée /etc/hosts, pas de CORS. La fondation invisible de toute la migration.
 */
@@ -66,7 +66,7 @@ Fini le JSON pour ces zones.</br>Le serveur répond avec **du HTML prêt à affi
 
 /*
 Montrer l'onglet Réseau après step-01.
-Contraste immédiat avec ce qu'on venait de voir : /api/* retournait du JSON, /hda/* retourne du HTML.
+Contraste immédiat avec ce qu'on venait de voir : /api/… retournait du JSON, /hda/… retourne du HTML.
 Le navigateur ne fait plus de transformation — il reçoit le rendu final et le colle dans le DOM.
 */
 
@@ -345,7 +345,99 @@ Ici le token reste en mémoire Zustand. Une seule ligne dans index.tsx couvre to
 
 ---
 
-## Récapitulatif : 4 steps, 4 patterns
+## Step-05 — ArticleMeta : une île interactive
+
+ArticleMeta existait **deux fois** dans la page article :
+
+- dans la bannière
+- sous le corps de l'article
+
+**Avant** — Preact gérait les callbacks `favorite`, `follow`, `delete`.
+
+**Après** — deux points de montage HTMX :
+
+```tsx
+<div id="article-meta-banner"
+     hx-get={articleMetaUrl('banner')}
+     hx-trigger="load"
+     hx-swap="outerHTML" />
+
+<div id="article-meta-actions"
+     hx-get={articleMetaUrl('actions')}
+     hx-trigger="load"
+     hx-swap="outerHTML" />
+```
+
+`Article.tsx` garde le routing et le Markdown. Go reprend les actions.
+
+/*
+Ce step est intéressant parce qu'on n'est plus sur une simple liste ou un formulaire.
+ArticleMeta est une petite zone riche : identité auteur, boutons follow/favorite, édition ou suppression selon le contexte utilisateur.
+Et surtout, elle existe deux fois dans la même page. Avant, Preact était le point naturel de synchronisation. Le step-05 enlève cette responsabilité du composant Preact.
+*/
+
+## Step-05 — Pattern 5 : Web Component en Light DOM
+
+Go rend le HTML complet :
+
+```html
+<conduit-article-meta id="article-meta-banner" data-slot="banner">
+  <div class="article-meta">
+    …
+    <button hx-post="/hda/articles/slug/favorite"
+            hx-target="closest conduit-article-meta"
+            hx-swap="outerHTML">
+      Favorite Article
+    </button>
+  </div>
+</conduit-article-meta>
+```
+
+Lit ajoute seulement le comportement local :
+
+```ts
+protected createRenderRoot() {
+  return this; // pas de Shadow DOM
+}
+```
+
+Le Web Component **n'est pas le renderer**. Il enrichit le HTML serveur.
+
+/*
+Point important : ce n'est pas "HTMX partout, puis retour à une mini-SPA".
+Le rendu reste côté Go. Le custom element garde le Light DOM, donc le HTML que Go envoie reste le HTML inspectable et échangeable par HTMX.
+Lit sert ici à deux comportements locaux : confirmation avant delete et état busy pendant la requête. C'est une île de comportement, pas une île de rendu.
+*/
+
+## Step-05 — Synchroniser sans store client
+
+Une mutation sur une occurrence renvoie **deux fragments** :
+
+```go
+templ ArticleMetaPair(article api.Article, activeSlot string, currentUsername string) {
+    @ArticleMeta(article, activeSlot, currentUsername)
+    @ArticleMetaOOB(article, otherArticleMetaSlot(activeSlot), currentUsername)
+}
+```
+
+```html
+<conduit-article-meta id="article-meta-actions" hx-swap-oob="true">
+  …
+</conduit-article-meta>
+```
+
+`hx-swap-oob` met à jour l'autre occurrence. Pas de state Preact partagé.
+
+/*
+Exemple à montrer en démo : cliquer Favorite en haut de l'article, et regarder le bouton du bas se synchroniser.
+Le serveur fait la mutation, relit l'article, puis renvoie l'état complet des deux slots.
+Le slot actif est remplacé par la réponse normale. L'autre slot est remplacé out-of-band grâce à son id.
+La synchronisation vient du HTML retourné par le serveur, pas d'un store côté client.
+*/
+
+---
+
+## Récapitulatif : 5 steps, 5 patterns
 
 | Step |&nbsp;| Fragment migré | Ce qui est introduit |
 |---|----|---|---|
@@ -353,11 +445,12 @@ Ici le token reste en mémoire Zustand. Une seule ligne dans index.tsx couvre to
 | 02 || ArticleFeed | Fragment auto-rafraîchissant + `htmx.ajax()` |
 | 03 || ProfileArticles | Pont routeur Preact → fragment |
 | 04 || Commentaires | `hx-post` / `hx-delete` + `htmx:configRequest` |
+| 05 || ArticleMeta | Web Component Light DOM + `hx-swap-oob` |
 
 /*
 Chaque step introduit exactement un nouveau concept.
 C'est volontaire : on voulait pouvoir montrer chaque pattern isolément, sans surcharge cognitive.
-Ces 4 patterns couvrent l'essentiel des cas réels : lecture simple, lecture paramétrée, routing externe, mutation authentifiée.
+Ces 5 patterns couvrent l'essentiel des cas réels : lecture simple, lecture paramétrée, routing externe, mutation authentifiée, et synchronisation de zones interactives dupliquées.
 */
 
 ## La cohabitation
@@ -367,25 +460,27 @@ graph TD
     subgraph spa["SPA Preact - shell"]
         R["Router"]
         H["Header / Nav"]
-        A["Article.tsx<br/>body + ArticleMeta"]
+        A["Article.tsx<br/>body Markdown"]
     end
     subgraph go["Fragments Go - /hda/*"]
         T["PopularTags"]
         F["ArticleFeed"]
         P["ProfileArticles"]
         C["Comments<br/>(GET + POST + DELETE)"]
+        M["ArticleMeta<br/>(favorite + follow + delete)"]
     end
     R --> H
     R --> A
     A -.->|htmx.process| C
+    A -.->|htmx.process| M
     R -.->|htmx.ajax| F
     R -.->|htmx.ajax| P
     T -.->|conduit:tag| F
 ```
 
 /*
-Voilà l'état final après les 4 steps.
-Preact reste le shell : routing, header, et les zones qui nécessitent une logique client riche (rendu Markdown, ArticleMeta avec état d'authentification).
-Go couvre tout le contenu stateless : listes, pagination, commentaires.
+Voilà l'état final après les 5 steps.
+Preact reste le shell : routing, header, chargement de l'article et rendu Markdown.
+Go couvre les listes, la pagination, les commentaires, et maintenant les actions ArticleMeta.
 La cohabitation n'est pas un état d'échec — c'est le résultat voulu d'un strangler fig bien mené.
 */

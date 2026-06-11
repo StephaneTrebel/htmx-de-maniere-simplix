@@ -93,7 +93,7 @@ La migration qu'on va montrer ne choisit pas un camp : elle déplace la frontiè
 - `hx-include` : inclure d'autres champs dans la requête
 - `hx-headers` : ajouter des headers HTTP personnalisés
 - `hx-select` : n'extraire qu'une partie de la réponse HTML
-- `hx-select-oob` : mettre à jour plusieurs zones en une seule réponse
+- `hx-swap-oob` : mettre à jour plusieurs zones en une seule réponse
 - `hx-on` : écouter les événements du cycle HTMX (`htmx:afterRequest`, `htmx:beforeSwap`, …)
 - `hx-request` : configurer timeout, credentials, mode CORS
 </br>
@@ -101,6 +101,6 @@ La migration qu'on va montrer ne choisit pas un camp : elle déplace la frontiè
 
 /*
 Ne pas lire la liste — l'audience peut lire.
-Pointer trois cas marquants : hx-trigger="load" qu'on va beaucoup utiliser, hx-swap="outerHTML" pour se remplacer soi-même, hx-select-oob pour mettre à jour plusieurs zones d'un coup.
+Pointer trois cas marquants : hx-trigger="load" qu'on va beaucoup utiliser, hx-swap="outerHTML" pour se remplacer soi-même, hx-swap-oob pour mettre à jour plusieurs zones d'un coup.
 Conclure : "On va en utiliser une poignée dans la démo — le reste existe si vous en avez besoin."
 */
