@@ -90,7 +90,7 @@ templ EventRow(e *model.Event) {
 	>
 		<span class="time">{ e.Timestamp.Format("15:04:05") }</span>
 		<span class={ "badge", methodBadgeClass(e.Request.Method) }>{ e.Request.Method }</span>
-		<span class="path" title={ e.Request.Path + queryStr(e.Request.Query) }>{ e.Request.Path }</span>
+		<span class="path" title={ e.Request.Path + queryStr(e.Request.Query) }>{ e.Request.Path }{ queryStr(e.Request.Query) }</span>
 		<span class="badges">
 			<span class={ "badge", ctBadgeClass(e) }>{ ctLabel(e) }</span>
 			<span class={ "badge", statusBadgeClass(e.Response.StatusCode) }>{ strconv.Itoa(e.Response.StatusCode) }</span>
