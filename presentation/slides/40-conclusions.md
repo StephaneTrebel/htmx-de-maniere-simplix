@@ -17,7 +17,7 @@ L'objectif n'est pas de vendre HTMX — c'est de donner une grille de décision 
 | Comments | comments[] + commentBody |
 | ArticleMeta | callbacks favorite/follow/delete + synchronisation entre deux occurrences |
 
-Moins d'état client = moins de synchronisation à maintenir.
+Moins d'état client = **moins de synchronisation à maintenir** ! 💪
 
 /*
 Ces éléments sont réels — ils viennent du diff entre step-00 et step-05.
@@ -27,11 +27,11 @@ Le point important : ces états ne portaient pas de valeur côté client. Ils ne
 
 ## Ce qui devient plus simple .[no-bullets]
 
-- **Moins de mapping JSON → DOM** — le serveur renvoie le rendu final
-- **Navigation déclarative** — onglets et pagination vivent dans le HTML
-- **Mutations sans état intermédiaire** — `hx-post` / `hx-delete` → re-rendu complet
-- **Synchronisation multi-zones** — `hx-swap-oob` remplace l'autre occurrence
-- **Rendu testable côté serveur** — les templates Go sont des fonctions pures
+- **Moins de mapping JSON → DOM** — le serveur renvoie le rendu final 🤓
+- **Navigation déclarative** — onglets et pagination vivent dans le HTML 🔒
+- **Mutations sans état intermédiaire** — `hx-post` / `hx-delete` → re-rendu complet ♻️
+- **Synchronisation multi-zones** — `hx-swap-oob` remplace l'autre occurrence 🚮
+- **Rendu testable côté serveur** — les templates Go sont des fonctions pures 😎
 
 /*
 Ces gains sont concrets et mesurables dans le diff.
@@ -41,11 +41,11 @@ Quand le serveur envoie directement le HTML final, cette couche disparaît.
 
 ## Ce qui ne disparaît pas .[no-bullets]
 
-- **La conception des frontières** — où placer la ligne Go / Preact ?
-- **L'historique navigateur** — les fragments ne changent pas l'URL
-- **Les interactions riches** — éditeur Markdown, drag & drop : du JS ciblé reste utile
-- **Les tests end-to-end** — plus importants qu'avant (nouveaux réflexes à acquérir)
-- **La duplication temporaire** — pendant la migration, deux systèmes rendent la même zone
+- **La conception des frontières** — où placer la ligne Go / Preact ? 🤔
+- **L'historique navigateur** — les fragments ne changent pas l'URL 😅
+- **Les interactions riches** — éditeur Markdown, drag & drop : du JS ciblé reste utile 🦄
+- **Les tests end-to-end** — plus importants qu'avant (nouveaux réflexes à acquérir) 🤩
+- **La duplication temporaire** — pendant la migration, deux systèmes rendent la même zone 👀
 
 /*
 HTMX ne supprime pas la conception logicielle — il déplace le curseur.
@@ -55,11 +55,11 @@ La duplication temporaire est normale dans un strangler fig — l'accepter expli
 
 ## Nos heuristiques
 
-1. **Migrer d'abord les lectures** — moins de risque, rollback immédiat
-2. **Remplacer un conteneur cohérent** — le fragment doit se re-rendre de façon autonome
-3. **Après une mutation, re-rendre complet** — le serveur est la source de vérité
-4. **Garder du JS pour les îles riches** — Preact ou Web Component, mais avec une frontière claire
-5. **Ne jamais exposer le token dans le DOM** — `htmx:configRequest` > `hx-headers`
+1. **Migrer d'abord les lectures** — moins de risque, rollback immédiat 🛑
+2. **Remplacer un conteneur cohérent** — le fragment doit se re-rendre de façon autonome 😌
+3. **Après une mutation, re-rendre complet** — le serveur est la source de vérité 💪
+4. **Garder du JS pour les îles riches** — Preact/WebComponent, mais avec une frontière claire 😎
+5. **Ne jamais exposer le token dans le DOM** — `htmx:configRequest` > `hx-headers` 👮
 
 /*
 Ces règles viennent de l'expérience sur ce projet — pas de la théorie.

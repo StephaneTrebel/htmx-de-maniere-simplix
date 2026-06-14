@@ -2,7 +2,7 @@
 
 # HTMX, de manière simplix
 
-Thomas, Stéphane, une SPA Preact, un backend Go, et du HTML qui revient au centre.
+Thomas, Stéphane, une SPA Preact, un backend Go, et du HTML qui reprend sa place au centre
 
 !image(assets/realworld-logo.png,Logo RealWorld Example App,420)
 
@@ -16,7 +16,7 @@ On va vous montrer du code qui tourne, des patterns qui ont marché, et ce qui r
 
 !image(assets/stephane_thomas.webp,portraits,600)
 
-| **Thomas Labarussias**|&nbsp;&nbsp;| **Stéphane Trebel**  |
+| **Thomas Labarussias**|| **Stéphane Trebel**  |
 |-|-|-|
 | Staff DevOps/SRE || Freelance 👨‍💻|
 | Ex-DevRel || Web Dev 🌍|
@@ -30,9 +30,9 @@ Garder court, l'audience est là pour le contenu.
 
 ## Le pacte
 
-- Un **vrai cas applicatif** — pas une todo-list
-- Une **migration progressive** — pas une réécriture héroïque
-- **SPA+JSON** et **HDA+HTML** comparés sur le même terrain
+- Un **vrai cas applicatif** — pas une todo-list 😅
+- Une **migration progressive** — pas un "big bang" 💥
+- **SPA+JSON** et **HDA+HTML** comparés sur le même terrain 🤝
 
 /*
 Trois engagements envers l'audience.
@@ -43,7 +43,7 @@ Le "même terrain" est important : on compare les deux approches sur exactement 
 ## Trois mouvements
 
 1. Le point de départ : une **SPA Preact** existante
-2. La migration *strangler fig* : **fragments HTML** servis par **Go + HTMX**
+2. La migration "*strangler fig*" : **fragments HTML** servis par **Go + HTMX**
 3. **Conclusions** : ce qui devient simple, ce qui reste dur
 
 /*

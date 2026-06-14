@@ -20,7 +20,7 @@ h1 {
   background-image: linear-gradient(
     -225deg,
     #153515 0%,
-      #127212 29%,
+    #127212 29%,
     #15d515 67%,
     #151515 100%
   );
@@ -72,6 +72,14 @@ section th:last-child {
   text-align: end;
 }
 
+section th:empty {
+  background: #202520;
+  max-width: 2px !important;
+}
+section td:empty {
+  background: #202520;
+}
+
 section th:first-child {
   text-align: start;
 }
@@ -85,8 +93,8 @@ section p {
 }
 
 section li {
-  line-height: 1.8;
-  margin-bottom: 0.4em;
+  line-height: 1.2;
+  /* margin-bottom: 0.4em; */
 }
 
 section pre {
@@ -106,3 +114,10 @@ section pre .hljs {
   background: #fff;
 }
 
+.split {
+  width: 70%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}

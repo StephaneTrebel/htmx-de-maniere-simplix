@@ -1,0 +1,10 @@
+<sd-title />
+<sd-content />
+<div class="split">
+  <div class="left">
+    <sd-left />
+  </div>
+  <div class="right">
+    <sd-right />
+  </div>
+</div>

@@ -36,6 +36,12 @@ Le serveur ne sait pas qu'il parle à HTMX — il rend du HTML, point.
 <!-- Le serveur répond avec du HTML pur -->
 <li>Article 1</li>
 <li>Article 2</li>
+
+<!-- Résultat -->
+<ul id="liste">
+    <li>Article 1</li>
+    <li>Article 2</li>
+</ul>
 ```
 
 /*
@@ -68,7 +74,7 @@ Transition : "Voilà le cycle. Maintenant regardons comment ça change la donne 
 
 ## Ce que ça change
 
-| | **SPA (JSON)** |&nbsp;&nbsp;&nbsp;| **HDA (HTML)** |
+|&nbsp;| **SPA (JSON)** || **HDA (HTML)** |
 |---|---|---|---|
 | **Réponse serveur** | `{ "articles": [...] }` || `<ul><li>…</li></ul>` |
 | **Rendu** | côté client (JS) || côté serveur |

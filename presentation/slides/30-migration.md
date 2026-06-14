@@ -345,7 +345,7 @@ Ici le token reste en mémoire Zustand. Une seule ligne dans index.tsx couvre to
 
 ---
 
-## Step-05 — ArticleMeta : une île interactive
+## Step-05 — ArticleMeta : une île réactive
 
 ArticleMeta existait **deux fois** dans la page article :
 
@@ -376,7 +376,7 @@ ArticleMeta est une petite zone riche : identité auteur, boutons follow/favorit
 Et surtout, elle existe deux fois dans la même page. Avant, Preact était le point naturel de synchronisation. Le step-05 enlève cette responsabilité du composant Preact.
 */
 
-## Step-05 — Pattern 5 : Web Component en Light DOM
+## WebComponent go brrr !
 
 Go rend le HTML complet :
 
@@ -393,7 +393,7 @@ Go rend le HTML complet :
 </conduit-article-meta>
 ```
 
-Lit ajoute seulement le comportement local :
+Lit ajoute seulement le comportement local (en "light DOM") :
 
 ```ts
 protected createRenderRoot() {
@@ -401,7 +401,7 @@ protected createRenderRoot() {
 }
 ```
 
-Le Web Component **n'est pas le renderer**. Il enrichit le HTML serveur.
+Le WebComponent **n'est pas la source du HTML**. Il enrichit le HTML serveur.
 
 /*
 Point important : ce n'est pas "HTMX partout, puis retour à une mini-SPA".
@@ -409,7 +409,7 @@ Le rendu reste côté Go. Le custom element garde le Light DOM, donc le HTML que
 Lit sert ici à deux comportements locaux : confirmation avant delete et état busy pendant la requête. C'est une île de comportement, pas une île de rendu.
 */
 
-## Step-05 — Synchroniser sans store client
+## Synchroniser sans store client
 
 Une mutation sur une occurrence renvoie **deux fragments** :
 
