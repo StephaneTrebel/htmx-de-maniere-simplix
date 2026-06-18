@@ -1,12 +1,21 @@
 [tools]
 node = "24"
 
-[tasks.spa]
+[tasks.stack]
 description = "Lance la SPA Preact en mode dev sur :8080"
 run = "npm ci && npm run start"
 dir = "preact-realworld-example-app"
 
-[tasks.stack]
-description = "Lance la SPA Preact en mode dev sur :8080 (équivalent de mise run stack pour cette branche)"
-run = "npm ci && npm run start"
-dir = "preact-realworld-example-app"
+[tasks.step]
+description = "Change de branche (ex: mise run step 1)"
+run = """
+case "${1}" in
+  0) git checkout step-00-spa-json ;;
+  1) git checkout step-01-go-hda-proxy ;;
+  2) git checkout step-02-article-feed ;;
+  3) git checkout step-03-profile ;;
+  4) git checkout step-04-comments ;;
+  5) git checkout step-05-webcomponent ;;
+  *) echo "Step inconnu : ${1}. Valeurs valides : 0-5" && exit 1 ;;
+esac
+"""

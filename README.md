@@ -109,7 +109,7 @@ npm run start
 ```bash
 git checkout step-00-spa-json
 mise install
-mise run spa
+mise run stack
 ```
 
 Ouvrir : **http://localhost:8080**
