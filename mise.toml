@@ -20,6 +20,11 @@ description = "Lance la stack complète (Traefik + Go HDA + SPA) via Docker Comp
 run = "docker compose up --build"
 dir = "reverse-proxy"
 
+[tasks.down]
+description = "Arrête la stack Docker Compose"
+run = "docker compose down"
+dir = "reverse-proxy"
+
 [tasks.templ]
 description = "Régénère les *_templ.go depuis les fichiers .templ"
 run = "make templ"
