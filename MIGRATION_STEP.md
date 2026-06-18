@@ -342,3 +342,19 @@ git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR : present
 - **"Your Feed"** (feed personnel authentifié) n'est pas migré — il nécessite le JWT et le middleware session, prévu pour un step ultérieur.
 - `Profile.tsx` reste en Preact pur et continue d'utiliser `ArticlePreview` et `Pagination` (composants Preact conservés).
 - Aucun test automatisé pour le backend Go dans ce step.
+
+---
+
+## Passer à l'étape suivante
+
+### Sans mise
+
+```bash
+git checkout step-03-profile
+```
+
+### Avec mise
+
+```bash
+mise run step 3
+```
