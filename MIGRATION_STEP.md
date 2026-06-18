@@ -91,3 +91,19 @@ npm run build   # doit produire dist/ sans erreur
 - Pas de backend Go (`go-hda-backend/` absent)
 - Pas de reverse proxy (`reverse-proxy/` absent)
 - Pas d'HTMX
+
+---
+
+## Passer à l'étape suivante
+
+### Sans mise
+
+```bash
+git checkout step-01-go-hda-proxy
+```
+
+### Avec mise
+
+```bash
+mise run step 1
+```
