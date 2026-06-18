@@ -63,14 +63,23 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 
 ## Prérequis
 
-### Go 1.22+
+### Sans mise
+
+#### SliDesk *(présentation)*
+
+Utilisé pour afficher le deck de conférence depuis `presentation/`.
+
+- **Linux (Debian/Ubuntu)** : télécharger le `.deb` depuis [GitHub Releases](https://github.com/slidesk/slidesk/releases)
+- **macOS** : `brew tap gouz/tools && brew install slidesk`
+
+#### Go 1.24+
 
 ```bash
-go version   # doit afficher go1.22.x ou supérieur
+go version   # doit afficher go1.24.x ou supérieur
 # Installer : https://go.dev/dl/
 ```
 
-### templ
+#### templ
 
 Générateur de templates Go utilisé par `go-hda-backend/`.
 
@@ -82,7 +91,7 @@ templ version   # v0.3.x ou supérieur
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
-### Node.js 18+
+#### Node.js 24+
 
 ```bash
 node --version
@@ -90,29 +99,44 @@ npm --version
 # Installer : https://nodejs.org/
 ```
 
-### Docker + Docker Compose v2 *(requis pour step-01 et suivants)*
+#### Docker + Docker Compose v2 *(requis pour step-01 et suivants)*
 
 ```bash
 docker --version          # doit afficher Docker version 24+
 docker compose version    # doit afficher Docker Compose version v2+
 ```
 
----
+### Avec mise
 
----
-
-## Avec mise
-
-[mise](https://mise.jdx.dev/) est disponible pour gérer les runtimes et lancer les tâches du repo.
+[mise](https://mise.jdx.dev/) gère automatiquement Go, Node.js et templ.
 
 ```bash
 mise install
 ```
 
-| Commande | Description |
-|---|---|
-| `mise run slides` | Lance la présentation SliDesk sur :1338 |
-| `mise run stack` | Lance la stack complète via Docker Compose (branches step-01+) |
+> **SliDesk** et **Docker** doivent être installés séparément (voir ci-dessus).
+
+
+---
+
+## Afficher la présentation
+
+Le deck de conférence se trouve dans `presentation/` et est servi par SliDesk sur le port 1338.
+
+### Sans mise
+
+```bash
+cd presentation
+slidesk
+```
+
+### Avec mise
+
+```bash
+mise run slides
+```
+
+Ouvrir : **http://localhost:1338**
 
 ---
 
@@ -120,11 +144,21 @@ mise install
 
 ### `step-00-spa-json` — SPA Preact seule
 
+#### Sans mise
+
 ```bash
 git checkout step-00-spa-json
 cd preact-realworld-example-app
 npm ci
 npm run start
+```
+
+#### Avec mise
+
+```bash
+git checkout step-00-spa-json
+mise install
+mise run spa
 ```
 
 Ouvrir : **http://localhost:8080**
@@ -152,10 +186,19 @@ git checkout step-01-go-hda-proxy
 
 #### Mode stack complète (Docker + Traefik) — recommandé
 
+##### Sans mise
+
 ```bash
 cd reverse-proxy
 cp .env.example .env
 docker compose up --build
+```
+
+##### Avec mise
+
+```bash
+cp reverse-proxy/.env.example reverse-proxy/.env
+mise run stack
 ```
 
 Ouvrir : **http://localhost:1337**
@@ -172,6 +215,8 @@ Pour vérifier que la migration fonctionne : ouvrez l'onglet **Réseau** du navi
 > ⚠️ En mode dev sans Traefik, le `hx-get="/hda/tags"` nécessite une configuration du proxy WMR
 > pour rediriger `/hda/*` vers `localhost:3000`. Utiliser la stack Docker est plus simple.
 
+##### Sans mise
+
 **Terminal 1 — Backend Go :**
 ```bash
 cd go-hda-backend
@@ -182,6 +227,16 @@ make dev   # génère les templates templ + démarre en mode watch sur :3000
 ```bash
 cd preact-realworld-example-app
 npm ci && npm run start   # http://localhost:8080
+```
+
+##### Avec mise
+
+```bash
+# Terminal 1 — Backend Go
+mise run go:dev
+
+# Terminal 2 — SPA Preact
+mise run spa
 ```
 
 ---
@@ -238,10 +293,19 @@ HTMX scanne les attributs `hx-*` au chargement initial de la page (`DOMContentLo
 
 #### Mode stack complète (Docker + Traefik) — recommandé
 
+##### Sans mise
+
 ```bash
 cd reverse-proxy
 cp .env.example .env
 docker compose up --build
+```
+
+##### Avec mise
+
+```bash
+cp reverse-proxy/.env.example reverse-proxy/.env
+mise run stack
 ```
 
 Ouvrir : **http://localhost:1337**
@@ -291,10 +355,19 @@ flowchart TD
 
 #### Mode stack complète (Docker + Traefik) — recommandé
 
+##### Sans mise
+
 ```bash
 cd reverse-proxy
 cp .env.example .env
 docker compose up --build
+```
+
+##### Avec mise
+
+```bash
+cp reverse-proxy/.env.example reverse-proxy/.env
+mise run stack
 ```
 
 Ouvrir : **http://localhost:1337** puis naviguer vers le profil d'un utilisateur (cliquer sur un auteur d'article).
@@ -346,10 +419,19 @@ flowchart TD
 
 #### Mode stack complète (Docker + Traefik) — recommandé
 
+##### Sans mise
+
 ```bash
 cd reverse-proxy
 cp .env.example .env
 docker compose up --build
+```
+
+##### Avec mise
+
+```bash
+cp reverse-proxy/.env.example reverse-proxy/.env
+mise run stack
 ```
 
 Ouvrir : **http://localhost:1337** puis cliquer sur un article.
