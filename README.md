@@ -156,9 +156,9 @@ npm run start
 #### Avec mise
 
 ```bash
-git checkout step-00-spa-json
+mise run step 0   # ou : git checkout step-00-spa-json
 mise install
-mise run spa
+mise run stack
 ```
 
 Ouvrir : **http://localhost:8080**
@@ -171,7 +171,11 @@ Aucun backend Go, aucun Traefik.
 ### `step-01-go-hda-proxy` — PopularTags migré vers Go + HTMX
 
 ```bash
+# Sans mise
 git checkout step-01-go-hda-proxy
+
+# Avec mise
+mise run step 1
 ```
 
 #### Ce qui a changé par rapport à step-00
@@ -244,7 +248,11 @@ mise run spa
 ### `step-02-article-feed` — fil d'articles migré vers Go + HTMX
 
 ```bash
+# Sans mise
 git checkout step-02-article-feed
+
+# Avec mise
+mise run step 2
 ```
 
 #### Ce qui a changé par rapport à step-01
@@ -323,7 +331,11 @@ Cliquez sur un tag dans la sidebar : requête `GET /hda/articles?tab=tag&tag=NOM
 ### `step-03-profile` — articles de profil migrés vers Go + HTMX
 
 ```bash
+# Sans mise
 git checkout step-03-profile
+
+# Avec mise
+mise run step 3
 ```
 
 #### Ce qui a changé par rapport à step-02
@@ -379,7 +391,11 @@ Pour vérifier la migration : onglet **Réseau** → naviguez vers un profil →
 ### `step-04-comments` — commentaires migrés vers Go + HTMX
 
 ```bash
+# Sans mise
 git checkout step-04-comments
+
+# Avec mise
+mise run step 4
 ```
 
 #### Ce qui a changé par rapport à step-03
