@@ -63,26 +63,9 @@ Chaque branche `step-N-*` est construite sur la précédente et ne migre qu'un p
 
 ## Prérequis
 
-### Go 1.22+
+### Sans mise
 
-```bash
-go version   # doit afficher go1.22.x ou supérieur
-# Installer : https://go.dev/dl/
-```
-
-### templ
-
-Générateur de templates Go utilisé par `go-hda-backend/`.
-
-```bash
-go install github.com/a-h/templ/cmd/templ@latest
-templ version   # v0.3.x ou supérieur
-
-# Si templ n'est pas dans le PATH :
-export PATH=$PATH:$(go env GOPATH)/bin
-```
-
-### Node.js 18+
+#### Node.js 24+
 
 ```bash
 node --version
@@ -90,40 +73,43 @@ npm --version
 # Installer : https://nodejs.org/
 ```
 
-### Docker + Docker Compose v2 *(requis pour step-01 et suivants)*
+#### Docker + Docker Compose v2 *(requis pour step-01 et suivants)*
 
 ```bash
 docker --version          # doit afficher Docker version 24+
 docker compose version    # doit afficher Docker Compose version v2+
 ```
 
----
+### Avec mise
 
----
-
-## Avec mise
-
-[mise](https://mise.jdx.dev/) gère automatiquement Node.js et expose des tâches prêtes à l'emploi.
+[mise](https://mise.jdx.dev/) gère automatiquement Node.js.
 
 ```bash
 mise install
 ```
 
-| Commande | Description |
-|---|---|
-| `mise run spa` | Lance la SPA Preact en mode dev sur :8080 |
+> **Docker** doit être installé séparément (système).
 
----
 
 ## Tester l'application
 
 ### `step-00-spa-json` — SPA Preact seule
+
+#### Sans mise
 
 ```bash
 git checkout step-00-spa-json
 cd preact-realworld-example-app
 npm ci
 npm run start
+```
+
+#### Avec mise
+
+```bash
+git checkout step-00-spa-json
+mise install
+mise run spa
 ```
 
 Ouvrir : **http://localhost:8080**
@@ -151,10 +137,19 @@ git checkout step-01-go-hda-proxy
 
 #### Mode stack complète (Docker + Traefik) — recommandé
 
+##### Sans mise
+
 ```bash
 cd reverse-proxy
 cp .env.example .env
 docker compose up --build
+```
+
+##### Avec mise
+
+```bash
+cp reverse-proxy/.env.example reverse-proxy/.env
+mise run stack
 ```
 
 Ouvrir : **http://localhost:1337**
@@ -171,6 +166,8 @@ Pour vérifier que la migration fonctionne : ouvrez l'onglet **Réseau** du navi
 > ⚠️ En mode dev sans Traefik, le `hx-get="/hda/tags"` nécessite une configuration du proxy Vite
 > pour rediriger `/hda/*` vers `localhost:3000`. Utiliser la stack Docker est plus simple.
 
+##### Sans mise
+
 **Terminal 1 — Backend Go :**
 ```bash
 cd go-hda-backend
@@ -181,6 +178,16 @@ make dev   # génère les templates templ + démarre en mode watch sur :3000
 ```bash
 cd preact-realworld-example-app
 npm ci && npm run start   # http://localhost:8080
+```
+
+##### Avec mise
+
+```bash
+# Terminal 1 — Backend Go
+mise run go:dev
+
+# Terminal 2 — SPA Preact
+mise run spa
 ```
 
 ---
