@@ -110,6 +110,27 @@ docker compose version    # doit afficher Docker Compose version v2+
 
 ---
 
+---
+
+## Avec mise
+
+[mise](https://mise.jdx.dev/) gère automatiquement Go, Node.js et templ, et expose des tâches prêtes à l'emploi.
+
+```bash
+mise install
+```
+
+| Commande | Description |
+|---|---|
+| `mise run go:dev` | Lance le backend Go en mode watch (templ + go run) sur :3000 |
+| `mise run spa` | Lance la SPA Preact en mode dev sur :8080 |
+| `mise run stack` | Lance la stack complète via Docker Compose sur :1337 *(recommandé)* |
+| `mise run templ` | Régénère les `*_templ.go` depuis les fichiers `.templ` |
+| `mise run build` | Compile et vérifie le backend Go |
+| `mise run check` | Validation complète avant de terminer le step |
+
+---
+
 ## Tester l'application
 
 ### `step-00-spa-json` — SPA Preact seule
