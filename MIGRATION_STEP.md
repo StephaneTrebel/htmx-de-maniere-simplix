@@ -265,3 +265,19 @@ git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo 
 - **"Your Feed"** sur Home reste hors périmètre.
 - `Profile.tsx` conserve un appel API JSON (`apiGetProfile`) pour alimenter le header.
 - Aucun test automatisé pour le backend Go.
+
+---
+
+## Passer à l'étape suivante
+
+### Sans mise
+
+```bash
+git checkout step-04-comments
+```
+
+### Avec mise
+
+```bash
+mise run step 4
+```
