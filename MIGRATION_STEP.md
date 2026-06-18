@@ -319,3 +319,19 @@ curl http://localhost:3000/hda/tags   # doit retourner du HTML
 - Aucun test automatisé n'existe pour le backend Go dans ce step.
 - Le backend Go ne gère pas encore l'authentification (aucune route protégée dans ce step).
 - L'environnement `SESSION_SECRET` est défini dans `docker-compose.yml` mais pas encore utilisé par le code Go (prévu pour les steps avec routes authentifiées).
+
+---
+
+## Passer à l'étape suivante
+
+### Sans mise
+
+```bash
+git checkout step-02-article-feed
+```
+
+### Avec mise
+
+```bash
+mise run step 2
+```
