@@ -1,0 +1,7 @@
+[tools]
+node = "24"
+
+[tasks.spa]
+description = "Lance la SPA Preact en mode dev sur :8080"
+run = "npm run start"
+dir = "preact-realworld-example-app"
