@@ -115,9 +115,11 @@ section pre .hljs {
 }
 
 .split {
-  width: 70%;
+  width: 95%;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
+  padding-left: 0.05em;
+  padding-right: 0.05em;
 }

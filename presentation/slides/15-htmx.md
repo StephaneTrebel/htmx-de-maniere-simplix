@@ -1,4 +1,4 @@
-## Mais d'abord….[chapter]
+## Mais d'abord… .[chapter]
 # HTMX, késaco ?
 
 /*

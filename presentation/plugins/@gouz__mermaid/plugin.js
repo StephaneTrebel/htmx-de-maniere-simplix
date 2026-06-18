@@ -3,9 +3,9 @@ mermaid.initialize({
   startOnLoad: false,
   themeVariables: {
     // background: 'transparent',
-    primaryColor: '#2B2',
+    primaryColor: '#d5ebd9',
     // primaryTextColor: '#fbf0df',
-    // primaryBorderColor: '#78e08f',
+    primaryBorderColor: '#b4e7bf',
     // lineColor: '#78e08f',
     secondaryColor: '#efe',
     tertiaryColor: '#dfd',
