@@ -1,45 +1,4 @@
-[tools]
-go = "1.24"
-node = "24"
-
-[tools."go:github.com/a-h/templ/cmd/templ"]
-version = "latest"
-
 [tasks.slides]
 description = "Lance la présentation SliDesk"
 run = "slidesk"
 dir = "presentation"
-
-[tasks.stack]
-description = "Lance la stack complète (Traefik + Go HDA + SPA) via Docker Compose"
-run = "docker compose up --build"
-dir = "reverse-proxy"
-
-[tasks."go:dev"]
-description = "Lance le backend Go en mode watch (templ + go run)"
-run = "make dev"
-dir = "go-hda-backend"
-
-[tasks.spa]
-description = "Lance la SPA Preact en mode dev sur :8080"
-run = "npm run start"
-dir = "preact-realworld-example-app"
-
-[tasks.templ]
-description = "Régénère les *_templ.go depuis les fichiers .templ"
-run = "make templ"
-dir = "go-hda-backend"
-
-[tasks.build]
-description = "Compile et vérifie le backend Go"
-run = "go build ./... && go vet ./..."
-dir = "go-hda-backend"
-
-[tasks.check]
-description = "Validation complète avant de terminer un step (build + templ + contrôle presentation/)"
-depends = ["build", "templ"]
-run = """
-git diff --name-only trunk...HEAD | grep '^presentation/' \
-  && echo '❌ ERREUR : des fichiers de presentation/ sont dans le diff du step' && exit 1 \
-  || echo '✅ OK : presentation/ non modifiée'
-"""
