@@ -15,7 +15,7 @@ description = "Lance la SPA Preact en mode dev sur :8080"
 run = "npm run start"
 dir = "preact-realworld-example-app"
 
-[tasks.up]
+[tasks.stack]
 description = "Lance la stack complète (Traefik + Go HDA + SPA) via Docker Compose"
 run = "docker compose up --build"
 dir = "reverse-proxy"
