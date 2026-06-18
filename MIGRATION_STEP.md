@@ -159,3 +159,23 @@ Le Web Component n'est donc pas un retour à une SPA : il garde le Light DOM ren
 - Les pages Editor, Settings, Auth et une partie des pages Profile restent SPA + API JSON.
 - Le backend Go ne décode pas le JWT : il le propage à l'API RealWorld et reçoit `currentUsername` depuis la SPA pour le rendu conditionnel.
 - La gestion fine des erreurs HTMX côté UI reste minimale : les handlers retournent des statuts HTTP simples.
+
+---
+
+## C'est la dernière étape
+
+Vous avez parcouru toutes les étapes de la migration. Bravo !
+
+Pour revenir à l'état initial :
+
+### Sans mise
+
+```bash
+git checkout step-00-spa-json
+```
+
+### Avec mise
+
+```bash
+mise run step 0
+```

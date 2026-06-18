@@ -137,9 +137,9 @@ npm run start
 #### Avec mise
 
 ```bash
-git checkout step-00-spa-json
+mise run step 0   # ou : git checkout step-00-spa-json
 mise install
-mise run spa
+mise run stack
 ```
 
 Ouvrir : **http://localhost:8080**
@@ -152,7 +152,11 @@ Aucun backend Go, aucun Traefik.
 ### `step-01-go-hda-proxy` — PopularTags migré vers Go + HTMX
 
 ```bash
+# Sans mise
 git checkout step-01-go-hda-proxy
+
+# Avec mise
+mise run step 1
 ```
 
 #### Ce qui a changé par rapport à step-00
