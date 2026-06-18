@@ -278,3 +278,19 @@ git diff --name-only trunk...HEAD | grep presentation/ && echo "ERREUR" || echo 
 - **"Your Feed"** sur Home reste hors périmètre.
 - `Article.tsx` conserve l'appel API JSON (`apiGetArticle`) et le rendu Markdown.
 - Aucun test automatisé pour le backend Go.
+
+---
+
+## Passer à l'étape suivante
+
+### Sans mise
+
+```bash
+git checkout step-05-webcomponent
+```
+
+### Avec mise
+
+```bash
+mise run step 5
+```
