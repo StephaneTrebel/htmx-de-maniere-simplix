@@ -99,6 +99,22 @@ docker compose version    # doit afficher Docker Compose version v2+
 
 ---
 
+---
+
+## Avec mise
+
+[mise](https://mise.jdx.dev/) gère automatiquement Node.js et expose des tâches prêtes à l'emploi.
+
+```bash
+mise install
+```
+
+| Commande | Description |
+|---|---|
+| `mise run spa` | Lance la SPA Preact en mode dev sur :8080 |
+
+---
+
 ## Tester l'application
 
 ### `step-00-spa-json` — SPA Preact seule
