@@ -5,3 +5,12 @@ node = "24"
 description = "Lance la SPA Preact en mode dev sur :8080"
 run = "npm run start"
 dir = "preact-realworld-example-app"
+
+[tasks.stack]
+description = "Lance la SPA Preact en mode dev sur :8080 (équivalent de mise run stack pour cette branche)"
+run = "npm run start"
+dir = "preact-realworld-example-app"
+
+[tasks.down]
+description = "Arrête le serveur de développement (Ctrl+C)"
+run = "echo 'Arrêtez le serveur de développement avec Ctrl+C dans le terminal concerné.'"
