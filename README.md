@@ -99,6 +99,23 @@ docker compose version    # doit afficher Docker Compose version v2+
 
 ---
 
+---
+
+## Avec mise
+
+[mise](https://mise.jdx.dev/) est disponible pour gérer les runtimes et lancer les tâches du repo.
+
+```bash
+mise install
+```
+
+| Commande | Description |
+|---|---|
+| `mise run slides` | Lance la présentation SliDesk sur :1338 |
+| `mise run stack` | Lance la stack complète via Docker Compose (branches step-01+) |
+
+---
+
 ## Tester l'application
 
 ### `step-00-spa-json` — SPA Preact seule

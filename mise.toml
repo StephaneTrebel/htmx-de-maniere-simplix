@@ -10,7 +10,7 @@ description = "Lance la présentation SliDesk"
 run = "slidesk"
 dir = "presentation"
 
-[tasks.up]
+[tasks.stack]
 description = "Lance la stack complète (Traefik + Go HDA + SPA) via Docker Compose"
 run = "docker compose up --build"
 dir = "reverse-proxy"
