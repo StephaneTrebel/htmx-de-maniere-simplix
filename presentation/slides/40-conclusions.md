@@ -70,13 +70,9 @@ La règle 5 est la seule à caractère sécurité — la seule qu'on ne peut pas
 ## Le vrai changement
 
 ```mermaid
-graph TD
-    subgraph HDA
-        H["HTML"] --> D2["DOM"]
-    end
-    subgraph SPA
-        J["JSON"] --> R["Rendu JS"] --> D["DOM"]
-    end
+graph LR
+    J["JSON"] --> R["Rendu JS"] --> D["DOM"]
+    H["HTML"] --> D2["DOM"]
 ```
 
 > On ne demande plus au navigateur de reconstruire l'application à partir de données.

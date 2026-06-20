@@ -1,5 +1,6 @@
 :root {
   --sd-primary-color: #202520;
+  --sd-heading-color: #202520;
 }
 
 section {
@@ -101,6 +102,12 @@ section pre {
   font-size: 1.5rem;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.language-mermaid > svg {
+  max-width: 95% !important;
+  max-height: 95% !important;
+  width: inherit !important;
 }
 
 section :not(pre) > code {

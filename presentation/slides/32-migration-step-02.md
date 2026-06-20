@@ -55,10 +55,10 @@ Avant : setPage, setActiveTab, useEffect — tout ça vivait dans Home.tsx.
 Maintenant : ça vit dans le HTML lui-même, sous forme d'attributs déclaratifs.
 */
 
-## Step-02 — Pattern 2 : htmx.ajax() comme pont
+## Step-02 — htmx.ajax() comme "pont"
 
 ```mermaid
-flowchart TD
+flowchart LR
     T["🖱️ Clic tag (fragment Go)<br/>CustomEvent('conduit:tag')"]
     H["Home.tsx — useEffect<br/>document.addEventListener"]
     J["window.htmx.ajax('GET',<br/>'/hda/articles?tab=tag&tag=go&page=1',<br/>{ target: '#article-feed' })"]

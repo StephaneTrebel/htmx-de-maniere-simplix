@@ -1,6 +1,8 @@
 ## Mais d'abord… .[chapter]
 # HTMX, késaco ?
 
+!image(assets/qr-code-conference-htmx-breizhcamp2025-steph.svg,,,500)
+
 /*
 Avant de plonger dans la migration, poser les bases pour que tout le monde soit au même niveau.
 Même si une partie de l'audience connaît HTMX, ce chapitre fixe le vocabulaire qu'on utilisera pendant tout le talk.

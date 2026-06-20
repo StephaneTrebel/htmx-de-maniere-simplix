@@ -62,10 +62,10 @@ Deux points à souligner.
 2. Le pattern data-tag est une protection XSS : on ne construit pas onclick="...go('{tag}')" avec la valeur du tag dans la string JS. On lit this.dataset.tag au moment du clic, depuis l'attribut DOM.
 */
 
-## Step-01 — Pattern 1 : CustomEvent DOM
+## Step-01 — CustomEvent DOM
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["🖱️ Clic sur un tag<br/>(fragment Go)"]
     B["dispatchEvent<br/>CustomEvent('conduit:tag', { detail: tag })"]
     C["Home.tsx écoute 'conduit:tag'<br/>document.addEventListener"]

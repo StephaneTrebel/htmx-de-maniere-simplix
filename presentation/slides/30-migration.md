@@ -10,15 +10,10 @@ L'utilisateur n'a rien vu. Le code a changé. Voilà comment.
 ## La stratégie : Strangler Fig
 
 ```mermaid
-graph TD
-    subgraph apres["Après chaque step"]
-        P2["⚛️ Preact<br/>shell"]
-        G["🐹 Go<br/>fragment"]
-        P2 -- "cohabite" --> G
-    end
-    subgraph avant["Avant"]
-        P1["⚛️ Preact<br/>tout"]
-    end
+graph LR
+    P2["⚛️ Preact<br/>(shell)"]
+    G["🐹 Go<br/>(fragment)"]
+    P2 -- "cohabite" --> G
 ```
 
 - Identifier une **zone de l'UI**

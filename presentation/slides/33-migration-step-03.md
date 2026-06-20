@@ -22,7 +22,7 @@ Le useEffect réagit aux changements d'URL ET de username : naviguer de /@alice 
 Après ce chargement initial, le fragment se débrouille seul pour les onglets, la pagination, le contenu.
 */
 
-## Step-03 — Pattern 3 : routeur Preact → fragment
+## Step-03 — Routeur Preact → fragment
 
 ```mermaid
 block-beta
