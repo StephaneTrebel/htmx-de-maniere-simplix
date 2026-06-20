@@ -3,11 +3,6 @@
   --sd-heading-color: #202520;
 }
 
-section {
-  background-color: #eaeeea;
-  color: var(--sd-primary-color);
-}
-
 footer:not(#numslide) {
   display: none;
 }
@@ -16,89 +11,52 @@ footer:not(#numslide) {
   color: var(--sd-primary-color);
 }
 
-h1 {
-  text-transform: uppercase;
-  background-image: linear-gradient(
-    -225deg,
-    #153515 0%,
-    #127212 29%,
-    #15d515 67%,
-    #151515 100%
-  );
-  background-size: auto auto;
-  background-clip: border-box;
-  background-size: 200% auto;
-  color: #fff;
-  background-clip: text;
-  text-fill-color: transparent;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: textclip 2s linear infinite;
-  display: inline-block;
-  font-size: 190px;
-}
-
-@keyframes textclip {
-  to {
-    background-position: 200% center;
-  }
-}
-
-h2 {
-  color: #152515;
-}
-
-section.no-bullets ul,
-section.no-bullets ol {
+.no-bullets ul,
+.no-bullets ol {
   list-style: none;
   padding-left: 0;
 }
 
-section.compact li {
+.compact li {
   line-height: 1.3;
   margin-bottom: 0.1em;
 }
 
-section.compact p {
+.compact p {
   line-height: 1.3;
   margin-bottom: 0.2em;
 }
 
-section th,
-section td {
-  /* padding: 0.5em 0.2em; */
-}
-
-section th:last-child {
+th:last-child {
   text-align: end;
 }
 
-section th:empty {
+th:empty {
   background: #202520;
   max-width: 2px !important;
 }
-section td:empty {
+td:empty {
   background: #202520;
 }
 
-section th:first-child {
+th:first-child {
   text-align: start;
 }
 
-section td:last-child {
+td:last-child {
   text-align: end;
 }
 
-section p {
+p {
   line-height: 1.8;
 }
 
-section li {
+li {
   line-height: 1.5;
   /* margin-bottom: 0.4em; */
 }
 
-section pre {
+pre {
   font-size: 1.5rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -110,14 +68,14 @@ section pre {
   width: inherit !important;
 }
 
-section :not(pre) > code {
+:not(pre) > code {
   background: rgba(120, 224, 143, 0.18);
   border: 1px solid rgba(120, 224, 143, 0.35);
   border-radius: 4px;
   padding: 0.05em 0.05em;
 }
 
-section pre .hljs {
+pre .hljs {
   background: #fff;
 }
 
