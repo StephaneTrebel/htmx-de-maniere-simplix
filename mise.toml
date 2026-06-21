@@ -8,6 +8,11 @@ dir = "preact-realworld-example-app"
 
 [tasks.step]
 description = "Change de branche (ex: mise run step 1)"
+usage = '''
+arg "<step>" help="Step to run" {
+  choices "0" "1" "2" "3" "4" "5"
+}
+'''
 run = """
 case "${1}" in
   0) git checkout step-00-spa-json ;;
