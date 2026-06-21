@@ -5,6 +5,16 @@ node = "24"
 [tools."go:github.com/a-h/templ/cmd/templ"]
 version = "latest"
 
+[tasks.trunk]
+description = "Retourne sur la branch trunk"
+run = "git checkout trunk"
+
+[tasks.slides]
+description = "Lance la presentation slidesk"
+depends = ["trunk"]
+run = "slidesk"
+dir = "presentation"
+
 [tasks."go:dev"]
 description = "Lance le backend Go en mode watch (templ + go run)"
 run = "make dev"
