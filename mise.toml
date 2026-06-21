@@ -17,7 +17,7 @@ dir = "preact-realworld-example-app"
 
 [tasks.stack]
 description = "Lance la stack complète (Traefik + Go HDA + SPA) via Docker Compose"
-run = "docker compose up --build"
+run = "docker compose up"
 dir = "reverse-proxy"
 
 [tasks.down]
