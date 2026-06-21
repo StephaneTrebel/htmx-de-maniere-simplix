@@ -37,7 +37,7 @@ flowchart LR
         Plugin
         Server["⚙️ Server<br/>(localhost:1337)"]
     end
-    Plugin -.->|"Req/Req"| UI["🔎 UI Req/Res Explorer"]
+    Plugin -.->|"Req/Res"| UI["🔎 UI Req/Res Explorer"]
     Go["🐹 Go + templ<br/>(port 3000)"]
     SPA["⚛️ SPA Preact<br/>(port 8080)"]
 
