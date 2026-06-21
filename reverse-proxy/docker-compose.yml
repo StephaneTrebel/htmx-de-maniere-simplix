@@ -46,6 +46,7 @@ services:
       context: ./traffic-dashboard/collector
       dockerfile: Dockerfile
     container_name: traffic-dashboard
+    image: htmx-simplix/traffic-dashboard:step-03
     restart: unless-stopped
     ports:
       - "8765:8765"   # UI + API + SSE + endpoint /ingest
@@ -71,6 +72,7 @@ services:
       context: ../go-hda-backend
       dockerfile: Dockerfile
     container_name: hda
+    image: htmx-simplix/go-hda-backend:step-03
     restart: unless-stopped
     environment:
       - PORT=3000
@@ -93,6 +95,7 @@ services:
       context: ../preact-realworld-example-app
       dockerfile: Dockerfile
     container_name: spa
+    image: htmx-simplix/spa-frontend:step-03
     restart: unless-stopped
     networks:
       - conduit-net
