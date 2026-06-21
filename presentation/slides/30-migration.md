@@ -32,13 +32,20 @@ On n'arrête pas l'application pour la réécrire. On choisit une zone, on la re
 ```mermaid
 flowchart LR
     Browser["🌐 Navigateur"]
-    Traefik["⚙️ Traefik<br/>(localhost:1337)"]
+    Browser -->|"HTTP"| Server
+    subgraph Traefik
+        Plugin
+        Server["⚙️ Server<br/>(localhost:1337)"]
+    end
+    Plugin -.->|"Req/Req"| UI["🔎 UI Req/Res Explorer"]
     Go["🐹 Go + templ<br/>(port 3000)"]
     SPA["⚛️ SPA Preact<br/>(port 8080)"]
 
-    Browser -->|"HTTP"| Traefik
-    Traefik -->|"/hda/*  priority=10"| Go
-    Traefik -->|"/*      priority=1"| SPA
+    Server -->|"/hda/*  priority=10"| Go
+    Server -->|"/*      priority=1"| SPA
+
+    classDef observation fill:#fffef5,stroke:#fde68a,color:#333
+    class Plugin,UI observation
 ```
 
 Un seul point d'entrée. Deux backends. L'utilisateur ne voit pas la frontière.
