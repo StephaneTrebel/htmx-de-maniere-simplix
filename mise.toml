@@ -1,6 +1,16 @@
 [tools]
 node = "24"
 
+[tasks.trunk]
+description = "Retourne sur la branch trunk"
+run = "git checkout trunk"
+
+[tasks.slides]
+description = "Lance la presentation slidesk"
+depends = ["trunk"]
+run = "slidesk"
+dir = "presentation"
+
 [tasks.stack]
 description = "Lance la SPA Preact en mode dev sur :8080"
 run = "npm ci && npm run start"
