@@ -55,11 +55,11 @@ La duplication temporaire est normale dans un strangler fig — l'accepter expli
 
 ## Nos heuristiques
 
-1. **Migrer d'abord les lectures** — moins de risque, rollback immédiat 🛑
-2. **Remplacer un conteneur cohérent** — le fragment doit se re-rendre de façon autonome 😌
-3. **Après une mutation, re-rendre complet** — le serveur est la source de vérité 💪
-4. **Garder du JS pour les îles riches** — Preact/WebComponent, mais avec une frontière claire 😎
-5. **Ne jamais exposer le token dans le DOM** — `htmx:configRequest` > `hx-headers` 👮
+1. **Migrer d'abord les lectures** — Moins de risque, rollback immédiat 🛑
+2. **Remplacer un conteneur cohérent** — Un fragment doit s'actualiser de façon autonome 😌
+3. **Après une mutation, réactualiser** — le serveur est la source de vérité 💪
+4. **Garder du JS pour les îles "riches"** — Preact/WebComponent, mais avec une frontière claire 😎
+5. **Ne jamais exposer un token dans le DOM** — `htmx:configRequest` > `hx-headers` 👮
 
 /*
 Ces règles viennent de l'expérience sur ce projet — pas de la théorie.
